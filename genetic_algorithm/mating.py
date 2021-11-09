@@ -13,4 +13,10 @@ def mating(population, population_fitness, children_perc):
 
     """
 
+    # Select parents based on selection criterion
+
+    # Generate children population with given size
+
+    
+
     return children
