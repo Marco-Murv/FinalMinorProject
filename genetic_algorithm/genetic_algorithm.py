@@ -37,7 +37,7 @@ def optimise_local(population, calc, optimiser) -> None:
     """
     [atoms.set_calculator(calc) for atoms in population]
     [optimiser(atoms, logfile=None).run() for atoms in population]
-    
+
     return 
 
 
@@ -70,7 +70,8 @@ def main() -> None:
         children = []
 
         # Mutating (Choose 1 out of 4 mutators)
-        # mutants = mutators.FUNCTION(population+children, mutation_rate)
+        # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)
+        # mutants = mutators.FUNCTION_1(population+children, mutation_rate_2)
         mutants = []
 
         # Local minimisation
