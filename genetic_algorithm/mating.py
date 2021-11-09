@@ -1,6 +1,9 @@
 import numpy as np
+from ase import Atoms
+from typing import List
 
-def mating(population, population_fitness, children_perc):
+
+def mating(population, population_fitness, children_perc) -> List[Atoms]:
     """Generate children for the given population
 
     Args:
@@ -17,6 +20,6 @@ def mating(population, population_fitness, children_perc):
 
     # Generate children population with given size
 
-    
+    children = population  # TODO: CHANGE
 
     return children

@@ -10,6 +10,7 @@ from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.ga.startgenerator import StartGenerator
 from ase.optimize import LBFGS
+from typing import List
 import sys
 
 import mating
@@ -29,7 +30,7 @@ def generate_cluster(cluster_size, radius) -> Atoms:
     return new_cluster
 
 
-def generate_population(popul_size, cluster_size, radius) -> [Atoms]:
+def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
     """Generate initial population
     """
     return [generate_cluster(cluster_size, radius) for i in range(popul_size)]
@@ -44,7 +45,7 @@ def optimise_local(population, calc, optimiser) -> None:
     return
 
 
-def fitness(population, func="exponential"):
+def fitness(population, func="exponential") -> np.ndarray:
     """Calculate the fitness of the clusters in the population
     """
     # Normalise the energies
