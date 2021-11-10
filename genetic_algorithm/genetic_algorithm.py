@@ -10,7 +10,7 @@ from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.ga.startgenerator import StartGenerator
 from ase.optimize import LBFGS
-import sys
+from typing import List
 
 import mating
 import mutators
@@ -18,18 +18,18 @@ import mutators
 import time
 
 
+
 def generate_cluster(cluster_size, radius) -> Atoms:
-    """Generate a clus"""
+    """Generate a random cluster with set number of atoms
+    The atoms will be placed within a (radius x radius x radius) cube."""
 
-    coords = np.random.uniform(-radius, radius, (cluster_size, 3)).tolist()
-
-    # TODO: Don't use H atoms
-    new_cluster = Atoms('H'+str(cluster_size), coords)
+    coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
+    new_cluster = Atoms('H'+str(cluster_size), coords) # TODO: Don't use H atoms
 
     return new_cluster
 
 
-def generate_population(popul_size, cluster_size, radius) -> [Atoms]:
+def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
     """Generate initial population
     """
     return [generate_cluster(cluster_size, radius) for i in range(popul_size)]
@@ -71,12 +71,13 @@ def main() -> None:
     # Parse possible input, otherwise use default parameters
     # Set parameters (change None)
     delta_energy_threshold = 0.1  # TODO: Change this
+    fitness_func = "exponential"
     local_optimiser = LBFGS
     children_perc = 0.8  # TODO: Change later
-    fitness_func = "exponential"
     cluster_radius = 2  # Angstroms TODO: Change this
     cluster_size = 3
     popul_size = 20
+    max_iter = 20  # TODO: Change
 
     # Make local optimisation calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
@@ -88,12 +89,12 @@ def main() -> None:
     # Determine fitness
     population_fitness = fitness(population, fitness_func)
 
-    # while not done (max iterations / optimum not changing)
-    for i in range(10):
+    iter = 0
+    while iter < max_iter and True:  # TODO: Add condition if doesn't change anymore
+        iter += 1
 
         # Mating - get new population
-        # children = mating(population, population_fitness, children_perc)
-        children = []
+        children = mating(population, population_fitness, children_perc)
 
         # Mutating (Choose 1 out of 4 mutators)
         # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)
@@ -108,6 +109,8 @@ def main() -> None:
         population_fitness = fitness(population, fitness_func)
         # Sort based on fitness, check if not too close (DeltaEnergy) and select popul_size best
         population = population
+
+        # Store current best
 
     # Store / report
 
