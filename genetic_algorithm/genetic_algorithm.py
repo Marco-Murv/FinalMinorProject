@@ -5,6 +5,13 @@ Genetic algorithm for geometry optimisation of atomic clusters.
 We can add more information later.
 """
 
+"""NOTES
+    * TODO: Refactor "atoms" -> "cluster"
+    * TODO: Write to a file to keep everything we run
+    * FIXME: Why are the potential energies negative? What is 0?
+    * TODO: See other TODOs in the file.
+"""
+
 import numpy as np
 from ase import Atoms
 from ase.calculators.lj import LennardJones
@@ -12,11 +19,14 @@ from ase.ga.startgenerator import StartGenerator
 from ase.optimize import LBFGS
 from typing import List
 
-import mating
+from mating import mating
 import mutators
 
 import time
 
+
+def debug(*args, **kwargs):
+    print(*args, **kwargs)
 
 
 def generate_cluster(cluster_size, radius) -> Atoms:
@@ -38,13 +48,14 @@ def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
 def optimise_local(population, calc, optimiser) -> None:
     """Local optimisation of the population
     """
-    [atoms.set_calculator(calc) for atoms in population]
-    [optimiser(atoms, logfile=None).run() for atoms in population]
+    for atoms in population:
+        atoms.set_calculator(calc)
+        optimiser(atoms, logfile=None).run()
 
     return
 
 
-def fitness(population, func="exponential"):
+def fitness(population, func="exponential") -> np.ndarray:
     """Calculate the fitness of the clusters in the population
     """
     # Normalise the energies
@@ -53,7 +64,7 @@ def fitness(population, func="exponential"):
         (np.max(energy) - np.min(energy))
 
     if func == "exponential":
-        alpha = 3  # How general is this value?
+        alpha = 3  # TODO: How general is this value?
         return np.exp(- alpha * normalised_energy)
 
     elif func == "linear":
@@ -74,25 +85,30 @@ def main() -> None:
     fitness_func = "exponential"
     local_optimiser = LBFGS
     children_perc = 0.8  # TODO: Change later
-    cluster_radius = 2  # Angstroms TODO: Change this
+    cluster_radius = 2  # [Angstroms] TODO: Change this
     cluster_size = 3
-    popul_size = 20
-    max_iter = 20  # TODO: Change
+    popul_size = 5
+
+    max_gen = 5  # TODO: Change
+    max_no_success = 2  # TODO: Change
 
     # Make local optimisation calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
 
     # Generate initial population
     population = generate_population(popul_size, cluster_size, cluster_radius)
-
     optimise_local(population, calc, local_optimiser)
+
     # Determine fitness
     population_fitness = fitness(population, fitness_func)
 
-    iter = 0
-    while iter < max_iter and True:  # TODO: Add condition if doesn't change anymore
-        iter += 1
+    best_minima = [population[0]]  # Initialised with random cluster
 
+    gen = 0
+    gen_no_success = 0
+
+    while gen_no_success < max_no_success and gen < max_gen:
+        debug(f"Generation {gen}")
         # Mating - get new population
         children = mating(population, population_fitness, children_perc)
 
@@ -107,12 +123,27 @@ def main() -> None:
 
         # Natural selection
         population_fitness = fitness(population, fitness_func)
-        # Sort based on fitness, check if not too close (DeltaEnergy) and select popul_size best
-        population = population
+
+        # Sort based on fitness, check if not too close (DeltaEnergy)
+        # and select popul_size best
+        population = [cluster for _, cluster in sorted(
+            zip(population_fitness, population))]
+        population_fitness = sorted(population_fitness)
+
+        # Store current best
+        if population[-1].get_potential_energy() < best_minima[-1].get_potential_energy():
+            best_minima.append(population[-1])
+            gen_no_success = 0
+        else:
+            gen_no_success += 1
+
+        gen += 1
 
         # Store current best
 
     # Store / report
+    for cluster in best_minima:
+        print(cluster.get_potential_energy())
 
     return
 
