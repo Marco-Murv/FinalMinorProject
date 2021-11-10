@@ -28,13 +28,13 @@ import time
 def debug(*args, **kwargs):
     print(*args, **kwargs)
 
+
 def generate_cluster(cluster_size, radius) -> Atoms:
     """Generate a random cluster with set number of atoms
     The atoms will be placed within a (radius x radius x radius) cube."""
 
     coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
-    # TODO: Don't use H atoms
-    new_cluster = Atoms('H' + str(cluster_size), coords)
+    new_cluster = Atoms('H'+str(cluster_size), coords) # TODO: Don't use H atoms
 
     return new_cluster
 
@@ -110,8 +110,7 @@ def main() -> None:
     while gen_no_success < max_no_success and gen < max_gen:
         debug(f"Generation {gen}")
         # Mating - get new population
-        # children = mating(population, population_fitness, children_perc)
-        children = []
+        children = mating(population, population_fitness, children_perc)
 
         # Mutating (Choose 1 out of 4 mutators)
         # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)
@@ -140,6 +139,8 @@ def main() -> None:
 
         gen += 1
 
+        # Store current best
+
     # Store / report
     for cluster in best_minima:
         print(cluster.get_potential_energy())
@@ -149,5 +150,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
-
