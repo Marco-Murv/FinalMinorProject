@@ -11,19 +11,18 @@ from ase.calculators.lj import LennardJones
 from ase.ga.startgenerator import StartGenerator
 from ase.optimize import LBFGS
 from typing import List
-import sys
 
-import mating
+from mating import mating
 import mutators
 
 import time
 
 
 def generate_cluster(cluster_size, radius) -> Atoms:
-    """Generate a clus"""
+    """Generate a random cluster with set number of atoms
+    The atoms will be placed within a (radius x radius x radius) cube."""
 
-    coords = np.random.uniform(-radius, radius, (cluster_size, 3)).tolist()
-
+    coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
     # TODO: Don't use H atoms
     new_cluster = Atoms('H'+str(cluster_size), coords)
 
@@ -72,12 +71,13 @@ def main() -> None:
     # Parse possible input, otherwise use default parameters
     # Set parameters (change None)
     delta_energy_threshold = 0.1  # TODO: Change this
+    fitness_func = "exponential"
     local_optimiser = LBFGS
     children_perc = 0.8  # TODO: Change later
-    fitness_func = "exponential"
     cluster_radius = 2  # Angstroms TODO: Change this
     cluster_size = 3
-    popul_size = 20
+    popul_size = 5
+    max_iter = 2  # TODO: Change
 
     # Make local optimisation calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
@@ -89,8 +89,13 @@ def main() -> None:
     # Determine fitness
     population_fitness = fitness(population, fitness_func)
 
-    # while not done (max iterations / optimum not changing)
-    for i in range(10):
+    best_minima = [population[0]] # Initialised with random cluster
+
+    iter = 0
+    iter_no_success = 0
+    while iter < max_iter and True:  # TODO: Add condition if doesn't change
+
+        print(iter)
 
         # Mating - get new population
         # children = mating(population, population_fitness, children_perc)
@@ -107,13 +112,34 @@ def main() -> None:
 
         # Natural selection
         population_fitness = fitness(population, fitness_func)
-        # Sort based on fitness, check if not too close (DeltaEnergy) and select popul_size best
-        population = population
+
+        # Sort based on fitness, check if not too close (DeltaEnergy)
+        # and select popul_size best
+        population = [cluster for _, cluster
+                      in sorted(zip(population_fitness, population))]
+        population_fitness = sorted(population_fitness)
+
+        # Store current best
+        if population[-1].get_potential_energy() < best_minima[-1].get_potential_energy():
+            best_minima.append(population[-1])
+            iter_no_success = 0
+        else:
+            iter_no_success += 1
+
+        iter += 1
 
     # Store / report
+    [print(cluster.get_potential_energy()) for cluster in  best_minima]
 
     return
 
 
 if __name__ == '__main__':
     main()
+
+
+"""NOTES
+    * TODO: Refactor "atoms" -> "cluster"
+    * FIXME: Why are the potential energies negative? What is 0?
+
+"""

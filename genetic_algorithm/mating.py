@@ -20,6 +20,6 @@ def mating(population, population_fitness, children_perc) -> List[Atoms]:
 
     # Generate children population with given size
 
-    children = population  # TODO: CHANGE
+    children = population  # TODO: CHANGE - 
 
     return children
