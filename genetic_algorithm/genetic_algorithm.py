@@ -8,9 +8,13 @@ We can add more information later.
 """NOTES
     * TODO: Refactor "atoms" -> "cluster"
     * TODO: Write to a file to keep everything we run
+    * TODO: Something might be wrong with the fitness values
     * FIXME: Why are the potential energies negative? What is 0?
     * TODO: See other TODOs in the file.
 """
+
+
+
 
 import numpy as np
 from ase import Atoms
@@ -18,23 +22,20 @@ from ase.calculators.lj import LennardJones
 from ase.ga.startgenerator import StartGenerator
 from ase.optimize import LBFGS
 from typing import List
-
 from mating import mating
 import mutators
-
 import time
-
-
 def debug(*args, **kwargs):
     print(*args, **kwargs)
 
 
 def generate_cluster(cluster_size, radius) -> Atoms:
     """Generate a random cluster with set number of atoms
-    The atoms will be placed within a (radius x radius x radius) cube."""
-
+    The atoms will be placed within a (radius x radius x radius) cube.
+    """
     coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
-    new_cluster = Atoms('H'+str(cluster_size), coords) # TODO: Don't use H atoms
+    # TODO: Don't use H atoms
+    new_cluster = Atoms('H'+str(cluster_size), coords)
 
     return new_cluster
 
@@ -59,6 +60,7 @@ def fitness(population, func="exponential") -> np.ndarray:
     """Calculate the fitness of the clusters in the population
     """
     # Normalise the energies
+
     energy = np.array([cluster.get_potential_energy() for cluster in population])
     normalised_energy = (energy - np.min(energy)) / \
         (np.max(energy) - np.min(energy))
@@ -76,9 +78,14 @@ def fitness(population, func="exponential") -> np.ndarray:
     else:
         print(f"'{func}' is not a valid fitness function. Using default")
         return fitness(population)
-
-
+        
 def main() -> None:
+    # TODO: REMOVE THIS
+    # np.random.seed(52) # FIXME: Problem
+    np.random.seed(62) 
+    # np.random.seed(82) # FIXME: Problem (Different)
+
+
     # Parse possible input, otherwise use default parameters
     # Set parameters (change None)
     delta_energy_threshold = 0.1  # TODO: Change this
@@ -86,7 +93,7 @@ def main() -> None:
     local_optimiser = LBFGS
     children_perc = 0.8  # TODO: Change later
     cluster_radius = 2  # [Angstroms] TODO: Change this
-    cluster_size = 3
+    cluster_size = 10
     popul_size = 5
 
     max_gen = 5  # TODO: Change
@@ -109,8 +116,9 @@ def main() -> None:
 
     while gen_no_success < max_no_success and gen < max_gen:
         debug(f"Generation {gen}")
+
         # Mating - get new population
-        children = mating(population, population_fitness, children_perc)
+        children = mating(population, population_fitness, children_perc, "roulette")
 
         # Mutating (Choose 1 out of 4 mutators)
         # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)
@@ -126,13 +134,13 @@ def main() -> None:
 
         # Sort based on fitness, check if not too close (DeltaEnergy)
         # and select popul_size best
-        population = [cluster for _, cluster in sorted(
-            zip(population_fitness, population))]
+        population = [cluster for _, cluster in sorted(zip(population_fitness, population))]
         population_fitness = sorted(population_fitness)
 
         # Store current best
         if population[-1].get_potential_energy() < best_minima[-1].get_potential_energy():
             best_minima.append(population[-1])
+            debug("New local minimum: ", population[-1].get_potential_energy())
             gen_no_success = 0
         else:
             gen_no_success += 1
@@ -142,8 +150,8 @@ def main() -> None:
         # Store current best
 
     # Store / report
-    for cluster in best_minima:
-        print(cluster.get_potential_energy())
+    debug("All the minima we found:")
+    debug([cluster.get_potential_energy() for cluster in best_minima])
 
     return
 
