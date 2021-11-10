@@ -8,9 +8,13 @@ We can add more information later.
 """NOTES
     * TODO: Refactor "atoms" -> "cluster"
     * TODO: Write to a file to keep everything we run
+    * TODO: Something might be wrong with the fitness values
     * FIXME: Why are the potential energies negative? What is 0?
     * TODO: See other TODOs in the file.
 """
+
+
+
 
 import numpy as np
 from ase import Atoms
@@ -18,13 +22,9 @@ from ase.calculators.lj import LennardJones
 from ase.ga.startgenerator import StartGenerator
 from ase.optimize import LBFGS
 from typing import List
-
 from mating import mating
 import mutators
-
 import time
-
-
 def debug(*args, **kwargs):
     print(*args, **kwargs)
 
@@ -34,7 +34,8 @@ def generate_cluster(cluster_size, radius) -> Atoms:
     The atoms will be placed within a (radius x radius x radius) cube."""
 
     coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
-    new_cluster = Atoms('H'+str(cluster_size), coords) # TODO: Don't use H atoms
+    # TODO: Don't use H atoms
+    new_cluster = Atoms('H'+str(cluster_size), coords)
 
     return new_cluster
 
@@ -60,8 +61,7 @@ def fitness(population, func="exponential") -> np.ndarray:
     """
     # Normalise the energies
     energy = np.array([atoms.get_potential_energy() for atoms in population])
-    normalised_energy = (energy - np.min(energy)) / \
-        (np.max(energy) - np.min(energy))
+    normalised_energy = (energy - np.min(energy)) / (np.max(energy) - np.min(energy))
 
     if func == "exponential":
         alpha = 3  # TODO: How general is this value?
@@ -109,6 +109,7 @@ def main() -> None:
 
     while gen_no_success < max_no_success and gen < max_gen:
         debug(f"Generation {gen}")
+
         # Mating - get new population
         children = mating(population, population_fitness, children_perc)
 
