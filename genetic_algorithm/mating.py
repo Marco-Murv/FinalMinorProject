@@ -32,8 +32,6 @@ def make_child(parent1, parent2) -> List[Atoms]:
     coords = np.concatenate((coords_p1[coords_p1[:, 2] >= z_center_p1],
                              coords_p2[coords_p2[:, 2] < z_center_p2]))
 
-    print("Coords : ", len(coords))
-
     if len(coords) < cluster_size:
         print("PROBLEM IN make_child: not enough atoms in the child.")
         return None

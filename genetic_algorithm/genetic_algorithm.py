@@ -81,8 +81,8 @@ def fitness(population, func="exponential") -> np.ndarray:
         
 def main() -> None:
     # TODO: REMOVE THIS
-    np.random.seed(52)
-    # np.random.seed(62) # FIXME: Problem
+    # np.random.seed(52) # FIXME: Problem
+    np.random.seed(62) 
     # np.random.seed(82) # FIXME: Problem (Different)
 
 
