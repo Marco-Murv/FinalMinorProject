@@ -49,6 +49,7 @@ def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
 def optimise_local(population, calc, optimiser) -> None:
     """Local optimisation of the population
     """
+
     for atoms in population:
         atoms.set_calculator(calc)
         optimiser(atoms, logfile=None).run()
@@ -61,6 +62,7 @@ def fitness(population, func="exponential") -> np.ndarray:
     """
     # Normalise the energies
     energy = np.array([atoms.get_potential_energy() for atoms in population])
+
     normalised_energy = (energy - np.min(energy)) / (np.max(energy) - np.min(energy))
 
     if func == "exponential":
@@ -78,6 +80,12 @@ def fitness(population, func="exponential") -> np.ndarray:
         return fitness(population)
         
 def main() -> None:
+    # TODO: REMOVE THIS
+    np.random.seed(52)
+    # np.random.seed(62) # FIXME: Problem
+    # np.random.seed(82) # FIXME: Problem (Different)
+
+
     # Parse possible input, otherwise use default parameters
     # Set parameters (change None)
     delta_energy_threshold = 0.1  # TODO: Change this
@@ -85,7 +93,7 @@ def main() -> None:
     local_optimiser = LBFGS
     children_perc = 0.8  # TODO: Change later
     cluster_radius = 2  # [Angstroms] TODO: Change this
-    cluster_size = 3
+    cluster_size = 10
     popul_size = 5
 
     max_gen = 5  # TODO: Change
@@ -126,13 +134,13 @@ def main() -> None:
 
         # Sort based on fitness, check if not too close (DeltaEnergy)
         # and select popul_size best
-        population = [cluster for _, cluster in sorted(
-            zip(population_fitness, population))]
+        population = [cluster for _, cluster in sorted(zip(population_fitness, population))]
         population_fitness = sorted(population_fitness)
 
         # Store current best
         if population[-1].get_potential_energy() < best_minima[-1].get_potential_energy():
             best_minima.append(population[-1])
+            debug("New local minimum: ", population[-1].get_potential_energy())
             gen_no_success = 0
         else:
             gen_no_success += 1
@@ -142,8 +150,8 @@ def main() -> None:
         # Store current best
 
     # Store / report
-    for cluster in best_minima:
-        print(cluster.get_potential_energy())
+    debug("All the minima we found:")
+    debug([cluster.get_potential_energy() for cluster in best_minima])
 
     return
 
