@@ -3,11 +3,15 @@ from ase import Atoms
 from typing import List
 import random
 
-from FinalMinorProject.genetic_algorithm.genetic_algorithm import fitness
-
 
 def make_child(parent1, parent2) -> List[Atoms]:
-    return
+
+    cluster_size = len(parent1.positions)
+    coords = parent1.positions[:cluster_size//2] + \
+        parent2.positions[cluster_size//2:]
+
+    child = Atoms('H'+str(len(coords)), coords)
+    return child
 
 
 def mating(population, population_fitness, children_perc, method="roulette", tournament_size=2) -> List[Atoms]:
@@ -39,7 +43,8 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
     elif method == "tournament":
 
         while len(parents) < num_children * 2:
-            subset_i = [random.randint(0, num_children-1) for i in range(tournament_size)]
+            subset_i = [random.randint(0, num_children-1)
+                        for i in range(tournament_size)]
             subset_fitness = [population_fitness[i] for i in subset_i]
 
             winner_i = subset_i[subset_fitness.index(max(subset_fitness))]

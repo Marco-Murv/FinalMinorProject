@@ -76,8 +76,7 @@ def fitness(population, func="exponential") -> np.ndarray:
     else:
         print(f"'{func}' is not a valid fitness function. Using default")
         return fitness(population)
-
-
+        
 def main() -> None:
     # Parse possible input, otherwise use default parameters
     # Set parameters (change None)
@@ -111,7 +110,7 @@ def main() -> None:
         debug(f"Generation {gen}")
 
         # Mating - get new population
-        children = mating(population, population_fitness, children_perc)
+        children = mating(population, population_fitness, children_perc, "roulette")
 
         # Mutating (Choose 1 out of 4 mutators)
         # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)
