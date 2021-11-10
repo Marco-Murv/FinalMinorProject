@@ -5,6 +5,13 @@ Genetic algorithm for geometry optimisation of atomic clusters.
 We can add more information later.
 """
 
+"""NOTES
+    * TODO: Refactor "atoms" -> "cluster"
+    * TODO: Write to a file to keep everything we run
+    * FIXME: Why are the potential energies negative? What is 0?
+    * TODO: See other TODOs in the file.
+"""
+
 import numpy as np
 from ase import Atoms
 from ase.calculators.lj import LennardJones
@@ -18,13 +25,16 @@ import mutators
 import time
 
 
+def debug(*args, **kwargs):
+    print(*args, **kwargs)
+
 def generate_cluster(cluster_size, radius) -> Atoms:
     """Generate a random cluster with set number of atoms
     The atoms will be placed within a (radius x radius x radius) cube."""
 
     coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
     # TODO: Don't use H atoms
-    new_cluster = Atoms('H'+str(cluster_size), coords)
+    new_cluster = Atoms('H' + str(cluster_size), coords)
 
     return new_cluster
 
@@ -79,8 +89,8 @@ def main() -> None:
     cluster_size = 3
     popul_size = 5
 
-    max_gen = 8  # TODO: Change
-    max_no_success = 3  # TODO: Change
+    max_gen = 5  # TODO: Change
+    max_no_success = 2  # TODO: Change
 
     # Make local optimisation calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
@@ -98,7 +108,7 @@ def main() -> None:
     gen_no_success = 0
 
     while gen_no_success < max_no_success and gen < max_gen:
-
+        debug(f"Generation {gen}")
         # Mating - get new population
         # children = mating(population, population_fitness, children_perc)
         children = []
@@ -141,8 +151,3 @@ if __name__ == '__main__':
     main()
 
 
-"""NOTES
-    * TODO: Refactor "atoms" -> "cluster"
-    * FIXME: Why are the potential energies negative? What is 0?
-
-"""
