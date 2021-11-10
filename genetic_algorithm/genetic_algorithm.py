@@ -31,8 +31,8 @@ def debug(*args, **kwargs):
 
 def generate_cluster(cluster_size, radius) -> Atoms:
     """Generate a random cluster with set number of atoms
-    The atoms will be placed within a (radius x radius x radius) cube."""
-
+    The atoms will be placed within a (radius x radius x radius) cube.
+    """
     coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
     # TODO: Don't use H atoms
     new_cluster = Atoms('H'+str(cluster_size), coords)
@@ -49,10 +49,9 @@ def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
 def optimise_local(population, calc, optimiser) -> None:
     """Local optimisation of the population
     """
-
-    for atoms in population:
-        atoms.set_calculator(calc)
-        optimiser(atoms, logfile=None).run()
+    for cluster in population:
+        cluster.set_calculator(calc)
+        optimiser(cluster, logfile=None).run()
 
     return
 
@@ -61,9 +60,10 @@ def fitness(population, func="exponential") -> np.ndarray:
     """Calculate the fitness of the clusters in the population
     """
     # Normalise the energies
-    energy = np.array([atoms.get_potential_energy() for atoms in population])
 
-    normalised_energy = (energy - np.min(energy)) / (np.max(energy) - np.min(energy))
+    energy = np.array([cluster.get_potential_energy() for cluster in population])
+    normalised_energy = (energy - np.min(energy)) / \
+        (np.max(energy) - np.min(energy))
 
     if func == "exponential":
         alpha = 3  # TODO: How general is this value?
