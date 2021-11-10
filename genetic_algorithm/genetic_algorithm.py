@@ -48,9 +48,9 @@ def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
 def optimise_local(population, calc, optimiser) -> None:
     """Local optimisation of the population
     """
-    for atoms in population:
-        atoms.set_calculator(calc)
-        optimiser(atoms, logfile=None).run()
+    for cluster in population:
+        cluster.set_calculator(calc)
+        optimiser(cluster, logfile=None).run()
 
     return
 
@@ -59,7 +59,7 @@ def fitness(population, func="exponential") -> np.ndarray:
     """Calculate the fitness of the clusters in the population
     """
     # Normalise the energies
-    energy = np.array([atoms.get_potential_energy() for atoms in population])
+    energy = np.array([cluster.get_potential_energy() for cluster in population])
     normalised_energy = (energy - np.min(energy)) / \
         (np.max(energy) - np.min(energy))
 
