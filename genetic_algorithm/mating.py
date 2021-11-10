@@ -1,14 +1,34 @@
+"""
+Mating procedure
+
+The parent selection can happen in one of two ways: Roulette wheel or tournament
+When there are enough parents, the children are created one by one.
+"""
+
+
 import numpy as np
 from ase import Atoms
 from typing import List
 import random
+import math as m
 
 
 def make_child(parent1, parent2) -> List[Atoms]:
+    """Making child from two parents
+    """
+    print("Making Child")
+
+    coords_parent1 = parent1.positions[np.argsort(parent1.positions[:,2])]
+    coords_parent2 = parent2.positions[np.argsort(parent1.positions[:,2])]
+
+    np.sort
 
     cluster_size = len(parent1.positions)
-    coords = parent1.positions[:cluster_size//2] + \
-        parent2.positions[cluster_size//2:]
+
+    coords = coords_parent1[:cluster_size//2] + coords_parent2[cluster_size//2:]
+   
+    if len(coords) < len(parent1.positions):
+        print("PROBLEM IN make_child: not enough atoms in the child.")
 
     child = Atoms('H'+str(len(coords)), coords)
     return child
@@ -26,27 +46,29 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
 
     Returns:
         children ([Atoms])
-
     """
-    num_children = children_perc * len(population)
+    num_children = m.ceil(children_perc * len(population))
     children = []
     parents = []
 
     if method == "roulette":
 
         while len(parents) < num_children * 2:
-            cluster_i = random.randint(0, num_children-1)
+            # Pick one of the clusters
+            cluster_i = random.randint(0, len(population)-1)
 
+            # Randomly decide if it can be a parent or not.
             if population_fitness[cluster_i] > random.random():
                 parents.append(population[cluster_i])
 
     elif method == "tournament":
 
         while len(parents) < num_children * 2:
-            subset_i = [random.randint(0, num_children-1)
-                        for i in range(tournament_size)]
+            # Pick a set of cluster indices. FIXME: Prevent twice the same.
+            subset_i = [random.randint(0, len(population)-1) for i in range(tournament_size)]
             subset_fitness = [population_fitness[i] for i in subset_i]
 
+            # Decide on a winner
             winner_i = subset_i[subset_fitness.index(max(subset_fitness))]
             winner = population[winner_i]
 
