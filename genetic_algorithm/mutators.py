@@ -139,9 +139,39 @@ def replacement(population, cluster_size, radius, mutation_rate):
 
     return [single_replacement(cluster_type, cluster_size, radius) for cluster in population if np.random.uniform() < mutation_rate]
 
-# TODO: implement
-def type_swap():
-    return
+
+def single_type_swap(cluster, max_swaps=5):
+    """
+    Mutates a cluster by swapping some of its atom types.
+
+    @param cluster: the cluster to mutate
+    @param max_swaps: maximum amount of pairs to swap atom types of
+    @return: mutated cluster with some of its atomic types swapped
+    """
+
+    num_atoms = len(cluster)
+    num_swaps = np.random.randint(max_swaps)
+    rng = np.random.default_rng()
+
+    for i in range(num_swaps):
+        atom_indices = rng.choice(num_atoms, size=2, replace=False)
+        symbol1 = cluster[atom_indices[0]].symbol
+        cluster[atom_indices[0]].symbol = cluster[atom_indices[1]].symbol
+        cluster[atom_indices[1]].symbol = symbol1
+
+    return cluster
+
+
+def type_swap(population, mutation_rate): # TODO: test function, also if original clusters remain unchanged
+    """
+    Mutates population by swapping atomic types of some atom pairs of a certain number of clusters.
+
+    @param population: list of atom to potentially apply mutations on
+    @param mutation_rate: probability of mutation occurring in a cluster
+    @return: list of mutated clusters which some types of pairs of atoms swapped
+    """
+
+    return [single_type_swap(cluster) for cluster in population if np.random.uniform() < mutation_rate]
 
 
 def single_mirror_shift(cluster, cluster_size, shift=0.1): # TODO: maybe change how much shift/what amount would be fitting
