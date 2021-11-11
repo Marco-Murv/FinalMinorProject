@@ -82,7 +82,6 @@ def single_rotation(cluster, cluster_type):
     @return: mutated cluster with a random rotation applied to its top half
     """
 
-    cluster.center()
     coords = np.array(cluster.get_positions())
     median_z = np.median(coords[:, 2])
     top_half = coords[coords[:, 2] > median_z, :]
@@ -91,7 +90,7 @@ def single_rotation(cluster, cluster_type):
     top_cluster = Atoms(cluster_type+str(top_half.shape[0]), top_half)
     bottom_cluster = Atoms(cluster_type+str(bottom_half.shape[0]), bottom_half)
 
-    top_cluster.rotate(np.random.randint(360), (0, 0, 1))
+    top_cluster.rotate(np.random.randint(360), (0, 0, 1), center='cop')
     top_cluster.extend(bottom_cluster)
 
     return top_cluster
@@ -161,7 +160,7 @@ def single_mirror_shift(cluster, cluster_size):
 
     # Obtain mirrored coordinates of all atoms
     mirrored_coords = coords - 2 * np.outer(coords.dot(normalised_norm), normalised_norm)
-    mirrored_cluster = Atoms('H' + str(coords.shape[0]), np.concatenate(coords, mirrored_coords))
+    mirrored_cluster = Atoms('H' + str(2 * coords.shape[0]), np.concatenate(coords, mirrored_coords))
 
     return mirrored_cluster
 
