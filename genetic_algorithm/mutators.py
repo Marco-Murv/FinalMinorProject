@@ -90,7 +90,7 @@ def single_rotation(cluster, cluster_type):
     top_cluster = Atoms(cluster_type+str(top_half.shape[0]), top_half)
     bottom_cluster = Atoms(cluster_type+str(bottom_half.shape[0]), bottom_half)
 
-    top_cluster.rotate(np.random.randint(360), (0, 0, 1), center='cop')
+    top_cluster.rotate(np.random.randint(360), (0, 0, 1), center='cop') # TODO: check 'cop' vs 'com' versions
     top_cluster.extend(bottom_cluster)
 
     return top_cluster
@@ -139,30 +139,36 @@ def replacement(population, cluster_size, radius, mutation_rate):
 
     return [single_replacement(cluster_type, cluster_size, radius) for cluster in population if np.random.uniform() < mutation_rate]
 
-
+# TODO: implement
 def type_swap():
     return
 
 
-def single_mirror_shift(cluster, cluster_size):
+def single_mirror_shift(cluster, cluster_size, shift=0.1): # TODO: maybe change how much shift/what amount would be fitting
     """
     Mutates a cluster by mirroring half of it which creates symmetric structures.
 
     @param cluster: cluster to apply mirror-shift mutation on
     @param cluster_size: size of a single cluster
+    @param shift: small shift for the mirrored part such that atoms are not too close
     @return: list of mutated clusters which are mirrored
     """
 
-    # TODO: get correct num of atoms (take into account even/odd!), check final cluster for correct size, add small shift
+    cluster.center()
     coords = np.array(cluster.get_positions())
     normal = np.random.uniform(-1, 1, 3)
     normalised_norm = normal / np.linalg.norm(normal)
 
-    # Obtain mirrored coordinates of all atoms
-    mirrored_coords = coords - 2 * np.outer(coords.dot(normalised_norm), normalised_norm)
+    # Obtain mirrored coordinates of all atoms lying on the same side of the mirror plane as the normal
+    dot_products = coords.dot(normalised_norm)
+    # TODO: nice way to deal with odd-sized clusters: add random coordinate? take ceil(size/2) and delete one random coordinate at end?
+    # TODO: check if correct number of atoms after operation below and how to deal with case where it's not correct
+    coords = coords[dot_products > 0, :]
+    mirrored_coords = coords - (shift + 2 * np.outer(dot_products[dot_products > 0], normalised_norm))
+
     mirrored_cluster = Atoms('H' + str(2 * coords.shape[0]), np.concatenate(coords, mirrored_coords))
 
-    return mirrored_cluster
+    return mirrored_cluster # TODO: test and check if original clusters unchanged
 
 
 def mirror_shift(population, cluster_size, mutation_rate):
