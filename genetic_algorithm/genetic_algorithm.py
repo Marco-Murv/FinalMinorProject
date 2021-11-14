@@ -15,8 +15,6 @@ We can add more information later.
 """
 
 
-
-
 import numpy as np
 from ase import Atoms
 from ase.calculators.lj import LennardJones
@@ -26,15 +24,14 @@ from typing import List
 from mating import mating
 import mutators
 import time
-
-
 def debug(*args, **kwargs):
     print(*args, **kwargs)
 
 
 def generate_cluster(cluster_size, radius) -> Atoms:
     """Generate a random cluster with set number of atoms
-    The atoms will be placed within a (radius x radius x radius) cube."""
+    The atoms will be placed within a (radius x radius x radius) cube.
+    """
 
     coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
     # TODO: Don't use H atoms
@@ -86,8 +83,8 @@ def fitness(population, func="exponential") -> np.ndarray:
 
 def main() -> None:
     # TODO: REMOVE THIS
-    # np.random.seed(52) # FIXME: Problem
-    np.random.seed(62)
+    np.random.seed(52) # FIXME: Problem
+    # np.random.seed(62)
     # np.random.seed(82) # FIXME: Problem (Different)
 
     # Parse possible input, otherwise use default parameters
@@ -98,7 +95,7 @@ def main() -> None:
     local_optimiser = LBFGS
     children_perc = 0.8  # TODO: Change later
     cluster_radius = 2  # [Angstroms] TODO: Change this
-    cluster_size = 10
+    cluster_size = 3
     popul_size = 5
 
     max_no_success = 5  # TODO: Change
@@ -123,7 +120,8 @@ def main() -> None:
         debug(f"Generation {gen}")
 
         # Mating - get new population
-        children = mating(population, population_fitness, children_perc, mating_method)
+        children = mating(population, population_fitness,
+                          children_perc, mating_method)
 
         # Mutating (Choose 1 out of 4 mutators)
         # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)

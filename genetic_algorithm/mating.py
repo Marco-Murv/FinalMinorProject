@@ -11,8 +11,6 @@ NOTES here
 """
 
 
-
-
 import numpy as np
 from ase import Atoms
 from typing import List
