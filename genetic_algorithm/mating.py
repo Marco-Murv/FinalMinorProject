@@ -10,11 +10,13 @@ NOTES here
     * TODO:
 """
 
+
+
+
 import numpy as np
 from ase import Atoms
 from typing import List
 import math as m
-
 def make_child(parent1, parent2) -> List[Atoms]:
     """Making child from two parents
 
@@ -39,10 +41,10 @@ def make_child(parent1, parent2) -> List[Atoms]:
     coords = np.concatenate((coords_p1[coords_p1[:, 2] >= z_center_p1],
                              coords_p2[coords_p2[:, 2] < z_center_p2]))
 
-    if len(coords) < cluster_size:
+    if coords.size < cluster_size:
         print("PROBLEM IN make_child: not enough atoms in the child.")
         return None
-    
+
     elif len(coords) > cluster_size:
         print("PROBLEM IN make_child: too many atoms in the child.")
         return None
@@ -64,6 +66,7 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
     Returns:
         children ([Atoms])
     """
+
     num_children = m.ceil(children_perc * len(population))
     children = []
     parents = []
@@ -83,7 +86,6 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
             if new_child != None:
                 children.append(new_child)
 
-
     elif method == "tournament":
 
         while len(parents) < num_children * 2:
@@ -98,4 +100,4 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
 
             parents.append(winner)
 
-    return children
+    return children  # TODO: Convert to np.array !

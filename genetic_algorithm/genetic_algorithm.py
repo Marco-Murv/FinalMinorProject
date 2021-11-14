@@ -11,6 +11,7 @@ We can add more information later.
     * TODO: Something might be wrong with the fitness values
     * FIXME: Why are the potential energies negative? What is 0?
     * TODO: See other TODOs in the file.
+    * TODO: Collect parameter values in another file.
 """
 
 
@@ -25,6 +26,8 @@ from typing import List
 from mating import mating
 import mutators
 import time
+
+
 def debug(*args, **kwargs):
     print(*args, **kwargs)
 
@@ -63,7 +66,8 @@ def fitness(population, func="exponential") -> np.ndarray:
     # Normalise the energies
     energy = np.array([atoms.get_potential_energy() for atoms in population])
 
-    normalised_energy = (energy - np.min(energy)) / (np.max(energy) - np.min(energy))
+    normalised_energy = (energy - np.min(energy)) / \
+        (np.max(energy) - np.min(energy))
 
     if func == "exponential":
         alpha = 3  # TODO: How general is this value?
@@ -78,26 +82,27 @@ def fitness(population, func="exponential") -> np.ndarray:
     else:
         print(f"'{func}' is not a valid fitness function. Using default")
         return fitness(population)
-        
+
+
 def main() -> None:
     # TODO: REMOVE THIS
     # np.random.seed(52) # FIXME: Problem
-    np.random.seed(62) 
+    np.random.seed(62)
     # np.random.seed(82) # FIXME: Problem (Different)
-
 
     # Parse possible input, otherwise use default parameters
     # Set parameters (change None)
     delta_energy_threshold = 0.1  # TODO: Change this
     fitness_func = "exponential"
+    mating_method = "roulette"
     local_optimiser = LBFGS
     children_perc = 0.8  # TODO: Change later
     cluster_radius = 2  # [Angstroms] TODO: Change this
     cluster_size = 10
     popul_size = 5
 
+    max_no_success = 5  # TODO: Change
     max_gen = 10  # TODO: Change
-    max_no_success = 5 # TODO: Change
 
     # Make local optimisation calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
@@ -118,8 +123,7 @@ def main() -> None:
         debug(f"Generation {gen}")
 
         # Mating - get new population
-        # children = mating(population, population_fitness, children_perc, "roulette")
-        children = mating(population, population_fitness, children_perc, "tournament")
+        children = mating(population, population_fitness, children_perc, mating_method)
 
         # Mutating (Choose 1 out of 4 mutators)
         # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)
