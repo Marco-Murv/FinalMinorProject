@@ -17,6 +17,13 @@ import math as m
 
 def make_child(parent1, parent2) -> List[Atoms]:
     """Making child from two parents
+
+    Args:
+        parent1 (List[Atoms]) : First parent cluster
+        parent2 (List[Atoms]) : Second parent cluster
+
+    Returns:
+        child (Atoms) : Offspring cluster
     """
 
     cluster_size = len(parent1.positions)
@@ -75,6 +82,7 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
 
             if new_child != None:
                 children.append(new_child)
+
 
     # elif method == "tournament":
 
