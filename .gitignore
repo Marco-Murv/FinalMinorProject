@@ -2,3 +2,5 @@
 *temp.py
 *.pyc
 *.pyo
+*log
+*.vscode/

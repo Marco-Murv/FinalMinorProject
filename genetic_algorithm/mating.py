@@ -10,13 +10,20 @@ NOTES here
     * TODO:
 """
 
+
 import numpy as np
 from ase import Atoms
 from typing import List
 import math as m
-
 def make_child(parent1, parent2) -> List[Atoms]:
     """Making child from two parents
+
+    Args:
+        parent1 (List[Atoms]) : First parent cluster
+        parent2 (List[Atoms]) : Second parent cluster
+
+    Returns:
+        child (Atoms) : Offspring cluster
     """
 
     cluster_size = len(parent1.positions)
@@ -32,10 +39,10 @@ def make_child(parent1, parent2) -> List[Atoms]:
     coords = np.concatenate((coords_p1[coords_p1[:, 2] >= z_center_p1],
                              coords_p2[coords_p2[:, 2] < z_center_p2]))
 
-    if len(coords) < cluster_size:
+    if coords.size < cluster_size:
         print("PROBLEM IN make_child: not enough atoms in the child.")
         return None
-    
+
     elif len(coords) > cluster_size:
         print("PROBLEM IN make_child: too many atoms in the child.")
         return None
@@ -57,6 +64,7 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
     Returns:
         children ([Atoms])
     """
+
     num_children = m.ceil(children_perc * len(population))
     children = []
     parents = []
@@ -76,18 +84,18 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
             if new_child != None:
                 children.append(new_child)
 
-    # elif method == "tournament":
+    elif method == "tournament":
 
-    #     while len(parents) < num_children * 2:
-    #         # Pick a set of cluster indices. FIXME: Prevent twice the same.
-    #         subset_i = [random.randint(0, len(population)-1)
-    #                     for i in range(tournament_size)]
-    #         subset_fitness = [population_fitness[i] for i in subset_i]
+        while len(parents) < num_children * 2:
+            # Pick a set of cluster indices. FIXME: Prevent twice the same.
+            subset_i = [np.random.randint(0, len(population)-1)
+                        for i in range(tournament_size)]
+            subset_fitness = [population_fitness[i] for i in subset_i]
 
-    #         # Decide on a winner
-    #         winner_i = subset_i[subset_fitness.index(max(subset_fitness))]
-    #         winner = population[winner_i]
+            # Decide on a winner
+            winner_i = subset_i[subset_fitness.index(max(subset_fitness))]
+            winner = population[winner_i]
 
-    #         parents.append(winner)
+            parents.append(winner)
 
-    return children
+    return children  # TODO: Convert to np.array !
