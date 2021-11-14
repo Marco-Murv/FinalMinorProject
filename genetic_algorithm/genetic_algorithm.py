@@ -81,8 +81,8 @@ def fitness(population, func="exponential") -> np.ndarray:
         
 def main() -> None:
     # TODO: REMOVE THIS
-    np.random.seed(52) # FIXME: Problem
-    # np.random.seed(62) 
+    # np.random.seed(52) # FIXME: Problem
+    np.random.seed(62) 
     # np.random.seed(82) # FIXME: Problem (Different)
 
 
@@ -96,8 +96,8 @@ def main() -> None:
     cluster_size = 10
     popul_size = 5
 
-    max_gen = 5  # TODO: Change
-    max_no_success = 2  # TODO: Change
+    max_gen = 10  # TODO: Change
+    max_no_success = 5 # TODO: Change
 
     # Make local optimisation calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
@@ -118,7 +118,8 @@ def main() -> None:
         debug(f"Generation {gen}")
 
         # Mating - get new population
-        children = mating(population, population_fitness, children_perc, "roulette")
+        # children = mating(population, population_fitness, children_perc, "roulette")
+        children = mating(population, population_fitness, children_perc, "tournament")
 
         # Mutating (Choose 1 out of 4 mutators)
         # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)
