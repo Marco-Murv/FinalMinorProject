@@ -7,15 +7,15 @@ When there are enough parents, the children are created one by one.
 
 """
 NOTES here
-    * TODO:
+    * TODO: Make sure the atoms are not on top of each other.
+    * 
 """
-
 
 import numpy as np
 from ase import Atoms
 from typing import List
 import math as m
-def make_child(parent1, parent2) -> List[Atoms]:
+def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
     """Making child from two parents
 
     Args:
@@ -38,6 +38,12 @@ def make_child(parent1, parent2) -> List[Atoms]:
     # Take half of one parent and half of the other. for odd N atoms, p1 favored
     coords = np.concatenate((coords_p1[coords_p1[:, 2] >= z_center_p1],
                              coords_p2[coords_p2[:, 2] < z_center_p2]))
+
+    for i in range(len(coords)):
+        for coord_j in coords[:i]:
+            while np.allclose(coords[i], coord_j, atol=atol):
+                print("Too close!!")
+                coords[i] = [coord+atol*np.random.rand() for coord in coords[i]]
 
     if coords.size < cluster_size:
         print("PROBLEM IN make_child: not enough atoms in the child.")
@@ -69,9 +75,9 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
     children = []
     parents = []
 
-    if method == "roulette":
-        while len(children) < num_children:
-            while len(parents) < num_children * 2:
+    while len(children) < num_children:
+        while len(parents) < num_children * 2:
+            if method == "roulette":
                 # Pick one of the clusters
                 cluster_i = np.random.randint(0, len(population)-1)
 
@@ -79,23 +85,20 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
                 if population_fitness[cluster_i] > np.random.random():
                     parents.append(population[cluster_i])
 
-            new_child = make_child(parents.pop(), parents.pop())
+            elif method == "tournament":
+                # Pick a set of cluster indices. FIXME: Prevent twice the same.
+                subset_i = [np.random.randint(
+                    0, len(population)-1) for i in range(tournament_size)]
+                subset_fitness = [population_fitness[i] for i in subset_i]
 
-            if new_child != None:
-                children.append(new_child)
+                # Decide on a winner
+                winner_i = subset_i[subset_fitness.index(max(subset_fitness))]
+                winner = population[winner_i]
 
-    elif method == "tournament":
+                parents.append(winner)
 
-        while len(parents) < num_children * 2:
-            # Pick a set of cluster indices. FIXME: Prevent twice the same.
-            subset_i = [np.random.randint(0, len(population)-1)
-                        for i in range(tournament_size)]
-            subset_fitness = [population_fitness[i] for i in subset_i]
-
-            # Decide on a winner
-            winner_i = subset_i[subset_fitness.index(max(subset_fitness))]
-            winner = population[winner_i]
-
-            parents.append(winner)
+        new_child = make_child(parents.pop(), parents.pop())
+        if new_child != None:
+            children.append(new_child)
 
     return children  # TODO: Convert to np.array !

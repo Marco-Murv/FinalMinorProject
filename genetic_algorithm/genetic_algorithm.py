@@ -12,145 +12,206 @@ We can add more information later.
     * FIXME: Why are the potential energies negative? What is 0?
     * TODO: See other TODOs in the file.
     * TODO: Collect parameter values in another file.
+    * TODO: Use less .get_potential_energy() (calculates every time)
 """
-
 
 import numpy as np
 from ase import Atoms
 from ase.calculators.lj import LennardJones
-from ase.ga.startgenerator import StartGenerator
 from ase.optimize import LBFGS
 from typing import List
 from mating import mating
 import mutators
 import time
-def debug(*args, **kwargs):
-    print(*args, **kwargs)
+import argparse
+
+
+def debug(*args, **kwargs) -> None:
+    """Alias for print() function.
+    This can easily be redefined to disable all output.
+    """
+    print("[DEBUG]: ", *args, **kwargs)
 
 
 def generate_cluster(cluster_size, radius) -> Atoms:
     """Generate a random cluster with set number of atoms
     The atoms will be placed within a (radius x radius x radius) cube.
+
+    Args:
+        cluster_size (int)  : Number of atoms per cluster
+        radius (float)      : dimension of the space where atoms can be placed.
+
+    Returns:
+        new_cluster (Atoms) : Randomly generated cluster
     """
 
     coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
-    # TODO: Don't use H atoms
+    # TODO: Can we use "mathematical dots" instead of H-atoms
     new_cluster = Atoms('H'+str(cluster_size), coords)
 
     return new_cluster
 
 
 def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
-    """Generate initial population
+    """Generate initial population. 
+
+    Args:
+        popul_size (int)    : number of clusters in the population
+        cluster_size (int)  : number of atoms in each cluster
+        radius (float)      : dimension of the initial random clusters
+
+    Returns:
+        (List[Atoms])       : List of clusters
     """
     return [generate_cluster(cluster_size, radius) for i in range(popul_size)]
 
 
-def optimise_local(population, calc, optimiser) -> None:
-    """Local optimisation of the population
+def optimise_local(population, calc, optimiser) -> List[Atoms]:
+    """Local optimisation of the population. The clusters in the population
+    are optimised and can be used after this function is called. Moreover,
+    calculate and return the final optimised potential energy of the clusters.
+
+    Args:
+        population(List[Atoms]) : List of clusters to be locally optimised
+        calc (Calculator)       : ASE Calculator for potential energy (e.g. LJ)
+        optimiser (Optimiser)   : ASE Optimiser (e.g. LBFGS)
+
+    Returns:
+        (List[Atoms])           : Optimised population
     """
     for cluster in population:
-        cluster.set_calculator(calc)
-        optimiser(cluster, logfile=None).run()
+        cluster.calc = calc
+        optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
+        # TODO: Maybe change steps? This is just a guess
 
-    return
+      return [cluster.get_potential_energy() for cluster in population]
 
 
 def fitness(population, func="exponential") -> np.ndarray:
     """Calculate the fitness of the clusters in the population
+
+    Args:
+        population(List[Atoms]) : List of clusters to calculate fitness
+        func (str)              : Fitness function
+                                    - "exponential" / "linear" / "hyperbolic"
+        optimiser (Optimiser)   : ASE Optimiser (e.g. LBFGS)
+
+    Returns:
+        (List[Atoms])           : Optimised population
     """
     # Normalise the energies
+    energies = np.array([cluster.get_potential_energy() for cluster in population])
 
-    energy = np.array([cluster.get_potential_energy() for cluster in population])
-
-    normalised_energy = (energy - np.min(energy)) / \
-        (np.max(energy) - np.min(energy))
+    normalised_energies = (energies - np.min(energies)) / \
+        (np.max(energies) - np.min(energies))
 
     if func == "exponential":
-        alpha = 3  # TODO: How general is this value?
-        return np.exp(- alpha * normalised_energy)
+        alpha = 3  # TODO: How general is this value? Change?
+        return np.exp(- alpha * normalised_energies)
 
     elif func == "linear":
-        return 1 - 0.7 * normalised_energy
+        return 1 - 0.7 * normalised_energies
 
     elif func == "hyperbolic":
-        return 0.5 * (1 - np.tanh(2 * energy - 1))
+        return 0.5 * (1 - np.tanh(2 * energies - 1))
 
     else:
         print(f"'{func}' is not a valid fitness function. Using default")
         return fitness(population)
 
+      
+def parse_args():
+    """Parsing the most important parameters
+    This will make it easy to run with different values (e.g. on a cluster)
+    """
+    parser = argparse.ArgumentParser(description='Genetic Algorithm PGGO')
+    parser.add_argument('--cluster_size', default=3, type=int, help='Number of atoms per cluster', metavar='')
+    parser.add_argument('--pop_size', default=5, type=int, help='Number of clusters in the population', metavar='')
+    parser.add_argument('--fitness_func', default="exponential", help='Fitness function', metavar='')
+    parser.add_argument('--mating_method', default="roulette", help='Mating Method', metavar='')
+    parser.add_argument('--children_perc', default=0.8, type=float, help='Fraction of the population that will have a child', metavar='')
+    parser.add_argument('--cluster_radius', default=2.0, type=float, help='Dimension of initial random clusters', metavar='')
+    parser.add_argument('--max_no_success', default=10, type=int, help='Consecutive generations allowed without new minimum', metavar='')
+    parser.add_argument('--max_gen', default=50, type=int, help='Maximum number of generations', metavar='')
+    parser.add_argument('--delta_energy_thr', default=0.01, type=float, help='Minimum difference in energy between clusters (DeltaE threshold)', metavar='')
+
+    args = parser.parse_args()
+    return args
+
 
 def main() -> None:
-    # TODO: REMOVE THIS
-    np.random.seed(52) # FIXME: Problem
-    # np.random.seed(62)
-    # np.random.seed(82) # FIXME: Problem (Different)
+    np.random.seed(3)
 
     # Parse possible input, otherwise use default parameters
-    # Set parameters (change None)
-    delta_energy_threshold = 0.1  # TODO: Change this
-    fitness_func = "exponential"
-    mating_method = "roulette"
-    local_optimiser = LBFGS
-    children_perc = 0.8  # TODO: Change later
-    cluster_radius = 2  # [Angstroms] TODO: Change this
-    cluster_size = 3
-    popul_size = 5
+    p = parse_args()
 
-    max_no_success = 5  # TODO: Change
-    max_gen = 10  # TODO: Change
-
-    # Make local optimisation calculator
+    # Make local optimisation Optimiser and calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
+    local_optimiser = LBFGS
 
-    # Generate initial population
-    population = generate_population(popul_size, cluster_size, cluster_radius)
-    optimise_local(population, calc, local_optimiser)
+    # Generate initial population and optimise locally
+    population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius)
+    energies = optimise_local(population, calc, local_optimiser)
 
     # Determine fitness
-    population_fitness = fitness(population, fitness_func)
+    population_fitness = fitness(population, p.fitness_func)
 
-    best_minima = [population[0]]  # Initialised with random cluster
+    # Keep track of global minima. Initialised with random cluster
+    best_minima = [population[0]] 
 
+    # Keep track of iterations
     gen = 0
     gen_no_success = 0
 
-    while gen_no_success < max_no_success and gen < max_gen:
-        debug(f"Generation {gen}")
+    while gen_no_success < p.max_no_success and gen < p.max_gen:
+        debug(f"Generation {gen:2d} - Population size = {len(population)}")
 
         # Mating - get new population
         children = mating(population, population_fitness,
-                          children_perc, mating_method)
+                          p.children_perc, p.mating_method)
 
         # Mutating (Choose 1 out of 4 mutators)
         # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)
         # mutants = mutators.FUNCTION_1(population+children, mutation_rate_2)
         mutants = []
 
-        # Local minimisation
-        optimise_local(children + mutants, calc, local_optimiser)
-        population += children + mutants
+        # Local minimisation and add to population
+        newborns = children + mutants
+        energies += optimise_local(newborns, calc, local_optimiser)
+        population += newborns
 
         # Natural selection
-        population_fitness = fitness(population, fitness_func)
+        population_fitness = fitness(population, p.fitness_func)
 
         # Sort based on fitness, check if not too close (DeltaEnergy)
         # and select popul_size best
-        population = [cluster for _, cluster in sorted(zip(population_fitness, population))]
-        population_fitness = sorted(population_fitness)
+        pop_sort_i = np.argsort(-population_fitness)
+
+        pop_i = 0
+        new_population = [population[pop_sort_i[pop_i]]]
+        new_energies = [new_population[0].get_potential_energy()]
+
+        while len(new_population) < p.pop_size and pop_i < len(pop_sort_i)-1:
+            pop_i += 1
+            candidate = population[pop_sort_i[pop_i]]
+
+            if abs(candidate.get_potential_energy() - new_energies[-1]) > p.delta_energy_thr:
+                new_population.append(candidate)
+                new_energies.append(candidate.get_potential_energy())
+
+        population = new_population.copy()
+        energies = new_energies.copy()
 
         # Store current best
-        if population[-1].get_potential_energy() < best_minima[-1].get_potential_energy():
-            best_minima.append(population[-1])
-            debug("New local minimum: ", population[-1].get_potential_energy())
+        if energies[0] < best_minima[-1].get_potential_energy():
+            best_minima.append(population[0])
+            debug("New local minimum: ", energies[0])
             gen_no_success = 0
+
         else:
             gen_no_success += 1
 
         gen += 1
-
-        # Store current best
 
     # Store / report
     debug("All the minima we found:")
