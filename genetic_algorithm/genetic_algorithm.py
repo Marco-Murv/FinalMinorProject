@@ -24,6 +24,8 @@ from typing import List
 from mating import mating
 import mutators
 import time
+
+
 def debug(*args, **kwargs):
     print(*args, **kwargs)
 
@@ -63,8 +65,7 @@ def fitness(population, func="exponential") -> np.ndarray:
     # Normalise the energies
     energy = np.array([atoms.get_potential_energy() for atoms in population])
 
-    normalised_energy = (energy - np.min(energy)) / \
-        (np.max(energy) - np.min(energy))
+    normalised_energy = (energy - np.min(energy)) / (np.max(energy) - np.min(energy))
 
     if func == "exponential":
         alpha = 3  # TODO: How general is this value?
@@ -83,9 +84,9 @@ def fitness(population, func="exponential") -> np.ndarray:
 
 def main() -> None:
     # TODO: REMOVE THIS
-    np.random.seed(52) # FIXME: Problem
-    # np.random.seed(62)
-    # np.random.seed(82) # FIXME: Problem (Different)
+    #  np.random.seed(52) # FIXME: Problem
+    np.random.seed(63)
+    #  np.random.seed(82) # FIXME: Problem (Different)
 
     # Parse possible input, otherwise use default parameters
     # Set parameters (change None)
@@ -106,6 +107,8 @@ def main() -> None:
 
     # Generate initial population
     population = generate_population(popul_size, cluster_size, cluster_radius)
+
+    print(population)
     optimise_local(population, calc, local_optimiser)
 
     # Determine fitness
@@ -120,8 +123,7 @@ def main() -> None:
         debug(f"Generation {gen}")
 
         # Mating - get new population
-        children = mating(population, population_fitness,
-                          children_perc, mating_method)
+        children = mating(population, population_fitness, children_perc, mating_method)
 
         # Mutating (Choose 1 out of 4 mutators)
         # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)
@@ -130,15 +132,20 @@ def main() -> None:
 
         # Local minimisation
         optimise_local(children + mutants, calc, local_optimiser)
-        population += children + mutants
+        population +=  children + mutants
 
         # Natural selection
         population_fitness = fitness(population, fitness_func)
 
         # Sort based on fitness, check if not too close (DeltaEnergy)
         # and select popul_size best
-        population = [cluster for _, cluster in sorted(zip(population_fitness, population))]
-        population_fitness = sorted(population_fitness)
+        pop_sort_i = np.argsort(population_fitness)
+        population_fitness = np.take_along_axis(population_fitness, pop_sort_i, axis=0)
+        population = [population[i] for i in pop_sort_i]
+
+
+        #  population = [cluster for _, cluster in sorted(zip(population_fitness, population))]
+        #  population_fitness = sorted(population_fitness)
 
         # Store current best
         if population[-1].get_potential_energy() < best_minima[-1].get_potential_energy():

@@ -7,8 +7,11 @@ When there are enough parents, the children are created one by one.
 
 """
 NOTES here
-    * TODO:
+    * TODO: Make sure the atoms are not on top of each other.
+    * 
 """
+
+
 
 
 import numpy as np
@@ -69,9 +72,9 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
     children = []
     parents = []
 
-    if method == "roulette":
-        while len(children) < num_children:
-            while len(parents) < num_children * 2:
+    while len(children) < num_children:
+        while len(parents) < num_children * 2:
+            if method == "roulette":
                 # Pick one of the clusters
                 cluster_i = np.random.randint(0, len(population)-1)
 
@@ -79,23 +82,19 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
                 if population_fitness[cluster_i] > np.random.random():
                     parents.append(population[cluster_i])
 
-            new_child = make_child(parents.pop(), parents.pop())
+            elif method == "tournament":
+                # Pick a set of cluster indices. FIXME: Prevent twice the same.
+                subset_i = [np.random.randint(0, len(population)-1) for i in range(tournament_size)]
+                subset_fitness = [population_fitness[i] for i in subset_i]
 
-            if new_child != None:
-                children.append(new_child)
+                # Decide on a winner
+                winner_i = subset_i[subset_fitness.index(max(subset_fitness))]
+                winner = population[winner_i]
 
-    elif method == "tournament":
+                parents.append(winner)
 
-        while len(parents) < num_children * 2:
-            # Pick a set of cluster indices. FIXME: Prevent twice the same.
-            subset_i = [np.random.randint(0, len(population)-1)
-                        for i in range(tournament_size)]
-            subset_fitness = [population_fitness[i] for i in subset_i]
-
-            # Decide on a winner
-            winner_i = subset_i[subset_fitness.index(max(subset_fitness))]
-            winner = population[winner_i]
-
-            parents.append(winner)
+        new_child = make_child(parents.pop(), parents.pop())
+        if new_child != None:
+            children.append(new_child)
 
     return children  # TODO: Convert to np.array !
