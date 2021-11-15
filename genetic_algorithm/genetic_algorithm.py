@@ -84,7 +84,7 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
         optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
         # TODO: Maybe change steps? This is just a guess
 
-      return [cluster.get_potential_energy() for cluster in population]
+    return [cluster.get_potential_energy() for cluster in population]
 
 
 def fitness(population, func="exponential") -> np.ndarray:
