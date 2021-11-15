@@ -7,3 +7,4 @@
 *.pyo
 *log
 *.vscode/
+*.db
