@@ -11,14 +11,11 @@ NOTES here
     * 
 """
 
-
-
-
 import numpy as np
 from ase import Atoms
 from typing import List
 import math as m
-def make_child(parent1, parent2) -> List[Atoms]:
+def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
     """Making child from two parents
 
     Args:
@@ -41,6 +38,12 @@ def make_child(parent1, parent2) -> List[Atoms]:
     # Take half of one parent and half of the other. for odd N atoms, p1 favored
     coords = np.concatenate((coords_p1[coords_p1[:, 2] >= z_center_p1],
                              coords_p2[coords_p2[:, 2] < z_center_p2]))
+
+    for i in range(len(coords)):
+        for coord_j in coords[:i]:
+            while np.allclose(coords[i], coord_j, atol=atol):
+                print("Too close!!")
+                coords[i] = [coord+atol*np.random.rand() for coord in coords[i]]
 
     if coords.size < cluster_size:
         print("PROBLEM IN make_child: not enough atoms in the child.")
@@ -84,7 +87,8 @@ def mating(population, population_fitness, children_perc, method="roulette", tou
 
             elif method == "tournament":
                 # Pick a set of cluster indices. FIXME: Prevent twice the same.
-                subset_i = [np.random.randint(0, len(population)-1) for i in range(tournament_size)]
+                subset_i = [np.random.randint(
+                    0, len(population)-1) for i in range(tournament_size)]
                 subset_fitness = [population_fitness[i] for i in subset_i]
 
                 # Decide on a winner
