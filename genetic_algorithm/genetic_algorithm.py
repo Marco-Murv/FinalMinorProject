@@ -231,9 +231,11 @@ def main() -> None:
     debug([cluster.get_potential_energy() for cluster in best_minima])
 
     db = ase.db.connect('genetic_algorithm_results.db')
-    db.write(best_minima[-1])
+    db.write(best_minima[-1], pop_size=p.pop_size, cluster_size=p.cluster_size,
+             max_gens=p.max_gen, max_no_success=p.max_no_success)
+
     # How to retrieve atoms:
-    # atom_db = db.get(natoms=p.cluster_size).toatoms()
+    # atom_db = db.get(natoms=p.cluster_size, pop_size=10, ...).toatoms()
 
     view(best_minima[-1])
 
