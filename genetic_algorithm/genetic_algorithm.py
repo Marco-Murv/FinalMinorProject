@@ -58,7 +58,7 @@ def generate_cluster(cluster_size, radius) -> Atoms:
 
 
 def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
-    """Generate initial population. 
+    """Generate initial population.
 
     Args:
         popul_size (int)    : number of clusters in the population
@@ -129,7 +129,7 @@ def fitness(population, func="exponential") -> np.ndarray:
         print(f"'{func}' is not a valid fitness function. Using default")
         return fitness(population)
 
-      
+
 def parse_args():
     """Parsing the most important parameters
     This will make it easy to run with different values (e.g. on a cluster)
@@ -168,7 +168,7 @@ def main() -> None:
     population_fitness = fitness(population, p.fitness_func)
 
     # Keep track of global minima. Initialised with random cluster
-    best_minima = [population[0]] 
+    best_minima = [population[0]]
 
     # Keep track of iterations
     gen = 0
@@ -237,7 +237,7 @@ def main() -> None:
     # How to retrieve atoms:
     # atom_db = db.get(natoms=p.cluster_size, pop_size=10, ...).toatoms()
 
-    view(best_minima[-1])
+    #  view(best_minima[-1])
 
     return
 

@@ -21,6 +21,7 @@ def show_db(db):
 def show_help():
     print("\nProvide one or more valid ID from the database to view.\n"
           "Provide a negative number to show the database\n"
+          "Write 'h' to show this help\n"
           "Write 'q' or 'Q' to quit")
 
 
@@ -37,7 +38,8 @@ view_ids = ['0']
 
 if len(sys.argv) > 1:
     view_ids = sys.argv[1:]
-
+else:
+    show_help()
 
 
 while True:
@@ -53,6 +55,8 @@ while True:
         except ValueError:
             if 'q' in view_ids or 'Q' in view_ids:
                 sys.exit("\n\nExiting...\n")
+            elif 'h' in view_ids:
+                show_help()
             else:
                 print("ERROR: Invalid option.")
                 show_help()
