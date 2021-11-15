@@ -73,13 +73,12 @@ def displacement_dynamic(population, mutation_rate, radius, max_moves=10):
     return [single_displacement_dynamic(cluster.copy(), radius, max_moves) for cluster in population if np.random.uniform() < mutation_rate]
 
 
-def single_rotation(cluster, cluster_type):
+def single_rotation(cluster):
     """
     Mutates a single cluster by taking half of the cluster and rotating it by a random amount
     along the z-axis.
 
     @param cluster: the cluster to have half of it rotated
-    @param cluster_type: atom type of the cluster
     @return: mutated cluster with a random rotation applied to its top half
     """
 
@@ -88,6 +87,7 @@ def single_rotation(cluster, cluster_type):
     top_half = coords[coords[:, 2] > median_z, :]
     bottom_half = coords[coords[:, 2] < median_z, :]
 
+    cluster_type = cluster[0].symbol
     top_cluster = Atoms(cluster_type+str(top_half.shape[0]), top_half)
     bottom_cluster = Atoms(cluster_type+str(bottom_half.shape[0]), bottom_half)
 
@@ -97,17 +97,16 @@ def single_rotation(cluster, cluster_type):
     return top_cluster
 
 
-def rotation(population, cluster_type, mutation_rate):
+def rotation(population, mutation_rate):
     """
     Mutates population by splitting the cluster in 2 halves and randomly rotating one half around the z-axis.
 
     @param population: list of atom to potentially apply mutations on
-    @param cluster_type: atom type of the cluster
     @param mutation_rate: probability of mutation occurring in a cluster
     @return: list of mutated clusters where some of the structures have a part of them rotated
     """
 
-    return [single_rotation(cluster, cluster_type) for cluster in population if np.random.uniform() < mutation_rate]
+    return [single_rotation(cluster) for cluster in population if np.random.uniform() < mutation_rate]
 
 
 def single_replacement(cluster_type, cluster_size, radius):
