@@ -24,6 +24,7 @@ from mating import mating
 import mutators
 import time
 import argparse
+import sys
 
 
 def debug(*args, **kwargs) -> None:
@@ -81,7 +82,12 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     """
     for cluster in population:
         cluster.calc = calc
-        optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
+        try:
+            optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
+        except:  # TODO: how to properly handle these error cases?
+            print("FATAL ERROR: DIVISION BY ZERO ENCOUNTERED!")
+            sys.exit("PROGRAM ABORTED: FATAL ERROR")
+
         # TODO: Maybe change steps? This is just a guess
 
     return [cluster.get_potential_energy() for cluster in population]
@@ -140,8 +146,8 @@ def parse_args():
 
 
 def main() -> None:
-    np.random.seed(13)
     np.random.seed(241)
+    np.seterr(divide='raise')
 
     # Parse possible input, otherwise use default parameters
     p = parse_args()
