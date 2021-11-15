@@ -140,7 +140,8 @@ def parse_args():
 
 
 def main() -> None:
-    np.random.seed(3)
+    np.random.seed(13)
+    np.random.seed(241)
 
     # Parse possible input, otherwise use default parameters
     p = parse_args()
@@ -171,9 +172,11 @@ def main() -> None:
                           p.children_perc, p.mating_method)
 
         # Mutating (Choose 1 out of 4 mutators)
-        # mutants = mutators.FUNCTION_1(population+children, mutation_rate_1)
-        # mutants = mutators.FUNCTION_1(population+children, mutation_rate_2)
-        mutants = []
+        mutants = mutators.displacement_static(population, 0.05, p.cluster_radius)
+        mutants += mutators.displacement_dynamic(population, 0.05, p.cluster_radius)
+        mutants += mutators.rotation(population, 0.05)
+        mutants += mutators.replacement(population, p.cluster_size, p.cluster_radius, 0.05)
+        mutants += mutators.mirror_shift(population, p.cluster_size, 0.05)
 
         # Local minimisation and add to population
         newborns = children + mutants
