@@ -36,7 +36,7 @@ def displacement_static(population, mutation_rate, radius, displacements_per_clu
     @return: list of mutated clusters with some of their atoms displaced
     """
 
-    return [single_displacement_static(cluster, radius, displacements_per_cluster) for cluster in population if np.random.uniform() < mutation_rate]
+    return [single_displacement_static(cluster.copy(), radius, displacements_per_cluster) for cluster in population if np.random.uniform() < mutation_rate]
 
 
 def single_displacement_dynamic(cluster, radius, max_moves, scale_stdev=0.1):
@@ -54,7 +54,7 @@ def single_displacement_dynamic(cluster, radius, max_moves, scale_stdev=0.1):
     stdev = scale_stdev * radius
     for i in range(num_moves):
         # 10% of radius is used as standard deviation for normal distribution, can be modified/tuned.
-        cluster.rattle(stdev=stdev) # TODO: check if original population member is unchanged
+        cluster.rattle(stdev=stdev)  # TODO: lower rattle strength probably, seems to change clusters too much
 
     return cluster
 
@@ -70,7 +70,7 @@ def displacement_dynamic(population, mutation_rate, radius, max_moves=10):
     @return: list of mutated clusters with their atoms randomly moved
     """
 
-    return [single_displacement_dynamic(cluster, radius, max_moves) for cluster in population if np.random.uniform() < mutation_rate]
+    return [single_displacement_dynamic(cluster.copy(), radius, max_moves) for cluster in population if np.random.uniform() < mutation_rate]
 
 
 def single_rotation(cluster, cluster_type):
@@ -91,13 +91,13 @@ def single_rotation(cluster, cluster_type):
     top_cluster = Atoms(cluster_type+str(top_half.shape[0]), top_half)
     bottom_cluster = Atoms(cluster_type+str(bottom_half.shape[0]), bottom_half)
 
-    top_cluster.rotate(np.random.randint(360), (0, 0, 1), center='cop') # TODO: check 'cop' vs 'com' versions
+    top_cluster.rotate(np.random.randint(360), (0, 0, 1), center='cop')
     top_cluster.extend(bottom_cluster)
 
     return top_cluster
 
 
-def rotation(population, cluster_type, mutation_rate): #TODO: Test this, stuff like correct cluster size, original cluster not modified, etc.
+def rotation(population, cluster_type, mutation_rate):
     """
     Mutates population by splitting the cluster in 2 halves and randomly rotating one half around the z-axis.
 
@@ -136,7 +136,7 @@ def replacement(population, cluster_size, radius, mutation_rate):
     @return: list of mutated clusters which are newly generated
     """
 
-    cluster_type = population[0].get_chemical_symbols
+    cluster_type = population[0].get_chemical_symbols()
 
     return [single_replacement(cluster_type, cluster_size, radius) for cluster in population if np.random.uniform() < mutation_rate]
 
@@ -163,7 +163,7 @@ def single_type_swap(cluster, max_swaps=5):
     return cluster
 
 
-def type_swap(population, mutation_rate): # TODO: test function, also if original clusters remain unchanged
+def type_swap(population, mutation_rate):
     """
     Mutates population by swapping atomic types of some atom pairs of a certain number of clusters.
 
@@ -172,7 +172,7 @@ def type_swap(population, mutation_rate): # TODO: test function, also if origina
     @return: list of mutated clusters which some types of pairs of atoms swapped
     """
 
-    return [single_type_swap(cluster) for cluster in population if np.random.uniform() < mutation_rate]
+    return [single_type_swap(cluster.copy()) for cluster in population if np.random.uniform() < mutation_rate]
 
 
 def single_mirror_shift(cluster, cluster_size, shift=0.1): # TODO: maybe change how much shift/what amount would be fitting
@@ -193,16 +193,19 @@ def single_mirror_shift(cluster, cluster_size, shift=0.1): # TODO: maybe change 
     # Obtain mirrored coordinates of all atoms lying on the same side of the mirror plane as the normal
     dot_products = coords.dot(normalised_norm)
     coords = coords[dot_products > 0, :]
-    if len(coords) < math.ceil(cluster_size / 2):
+    dot_products = dot_products[dot_products > 0]
+    max_size = math.ceil(cluster_size / 2)
+    if coords.shape[0] < max_size:
         return cluster
-    coords = coords[math.ceil(cluster_size / 2)]
+    coords = coords[:max_size, :]
+    dot_products = dot_products[:max_size]
 
     mirrored_coords = coords - (shift + 2 * np.outer(dot_products[dot_products > 0], normalised_norm))
     if (cluster_size % 2) == 1:
         mirrored_coords = np.delete(mirrored_coords, np.random.randint(mirrored_coords.size))
-    mirrored_cluster = Atoms('H' + str(coords.shape[0] + str(mirrored_coords.shape[0])), np.concatenate(coords, mirrored_coords))
+    mirrored_cluster = Atoms('H' + str(coords.shape[0] + mirrored_coords.shape[0]), np.concatenate((coords, mirrored_coords)))
 
-    return mirrored_cluster  # TODO: test and check if original clusters unchanged
+    return mirrored_cluster
 
 
 def mirror_shift(population, cluster_size, mutation_rate):
@@ -215,4 +218,4 @@ def mirror_shift(population, cluster_size, mutation_rate):
     @return: list of mutated clusters which are mirrored
     """
 
-    return [single_mirror_shift(cluster, cluster_size) for cluster in population if np.random.uniform() < mutation_rate]
+    return [single_mirror_shift(cluster.copy(), cluster_size) for cluster in population if np.random.uniform() < mutation_rate]
