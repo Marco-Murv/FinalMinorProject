@@ -3,6 +3,7 @@ Possible mutation operations for the Genetic Algorithm.
 """
 
 import numpy as np
+import math
 from ase import Atoms
 
 
@@ -191,14 +192,17 @@ def single_mirror_shift(cluster, cluster_size, shift=0.1): # TODO: maybe change 
 
     # Obtain mirrored coordinates of all atoms lying on the same side of the mirror plane as the normal
     dot_products = coords.dot(normalised_norm)
-    # TODO: nice way to deal with odd-sized clusters: add random coordinate? take ceil(size/2) and delete one random coordinate at end?
-    # TODO: check if correct number of atoms after operation below and how to deal with case where it's not correct
     coords = coords[dot_products > 0, :]
+    if len(coords) < math.ceil(cluster_size / 2):
+        return cluster
+    coords = coords[math.ceil(cluster_size / 2)]
+
     mirrored_coords = coords - (shift + 2 * np.outer(dot_products[dot_products > 0], normalised_norm))
+    if (cluster_size % 2) == 1:
+        mirrored_coords = np.delete(mirrored_coords, np.random.randint(mirrored_coords.size))
+    mirrored_cluster = Atoms('H' + str(coords.shape[0] + str(mirrored_coords.shape[0])), np.concatenate(coords, mirrored_coords))
 
-    mirrored_cluster = Atoms('H' + str(2 * coords.shape[0]), np.concatenate(coords, mirrored_coords))
-
-    return mirrored_cluster # TODO: test and check if original clusters unchanged
+    return mirrored_cluster  # TODO: test and check if original clusters unchanged
 
 
 def mirror_shift(population, cluster_size, mutation_rate):
