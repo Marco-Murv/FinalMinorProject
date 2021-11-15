@@ -16,13 +16,17 @@ We can add more information later.
 """
 
 import numpy as np
+
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
+from ase.visualize import view
+from ase.io import write
+import ase.db
+
 from typing import List
 from mating import mating
 import mutators
-import time
 import argparse
 import sys
 
@@ -131,7 +135,7 @@ def parse_args():
     This will make it easy to run with different values (e.g. on a cluster)
     """
     parser = argparse.ArgumentParser(description='Genetic Algorithm PGGO')
-    parser.add_argument('--cluster_size', default=3, type=int, help='Number of atoms per cluster', metavar='')
+    parser.add_argument('--cluster_size', default=10, type=int, help='Number of atoms per cluster', metavar='')
     parser.add_argument('--pop_size', default=5, type=int, help='Number of clusters in the population', metavar='')
     parser.add_argument('--fitness_func', default="exponential", help='Fitness function', metavar='')
     parser.add_argument('--mating_method', default="roulette", help='Mating Method', metavar='')
@@ -146,7 +150,7 @@ def parse_args():
 
 
 def main() -> None:
-    np.random.seed(241)
+    # np.random.seed(241)
     np.seterr(divide='raise')
 
     # Parse possible input, otherwise use default parameters
@@ -225,6 +229,13 @@ def main() -> None:
     # Store / report
     debug("All the minima we found:")
     debug([cluster.get_potential_energy() for cluster in best_minima])
+
+    db = ase.db.connect('genetic_algorithm_results.db')
+    db.write(best_minima[-1])
+    # How to retrieve atoms:
+    # atom_db = db.get(natoms=p.cluster_size).toatoms()
+
+    view(best_minima[-1])
 
     return
 
