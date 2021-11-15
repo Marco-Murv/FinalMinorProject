@@ -1,5 +1,10 @@
 """
 Possible mutation operations for the Genetic Algorithm.
+
+NOTE: The mutators here only work properly for Lennard-Jones clusters with
+a single (random) atom type used for creating the Atoms objects.
+To make it work with general clusters, it requires some modifications to keep
+track of correct atom types.
 """
 
 import numpy as np
@@ -202,7 +207,7 @@ def single_mirror_shift(cluster, cluster_size, shift=0.1): # TODO: maybe change 
     mirrored_coords = coords - (shift + 2 * np.outer(dot_products[dot_products > 0], normalised_norm))
     if (cluster_size % 2) == 1:
         mirrored_coords = np.delete(mirrored_coords, np.random.randint(mirrored_coords.shape[0]), 0)
-    mirrored_cluster = Atoms('H' + str(coords.shape[0] + mirrored_coords.shape[0]), np.concatenate((coords, mirrored_coords)))
+    mirrored_cluster = Atoms(cluster[0].symbol + str(coords.shape[0] + mirrored_coords.shape[0]), np.concatenate((coords, mirrored_coords)))
 
     return mirrored_cluster
 
