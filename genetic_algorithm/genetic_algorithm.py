@@ -230,7 +230,7 @@ def main() -> None:
     debug("All the minima we found:")
     debug([cluster.get_potential_energy() for cluster in best_minima])
 
-    db = ase.db.connect('genetic_algorithm_results.db')
+    db = ase.db.connect('./genetic_algorithm_results.db')
     db.write(best_minima[-1], pop_size=p.pop_size, cluster_size=p.cluster_size,
              max_gens=p.max_gen, max_no_success=p.max_no_success)
 
