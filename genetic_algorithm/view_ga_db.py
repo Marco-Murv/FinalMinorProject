@@ -25,7 +25,10 @@ def show_help():
           "Write 'q' or 'Q' to quit")
 
 
-db_file = "./genetic_algorithm_results.db"
+db_file_relative = "genetic_algorithm_results.db"
+
+dirname = os.path.dirname(__file__)
+db_file = os.path.join(dirname, db_file_relative)
 
 
 while not os.path.exists(db_file):
