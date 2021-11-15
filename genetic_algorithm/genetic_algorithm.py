@@ -15,9 +15,6 @@ We can add more information later.
     * TODO: Use less .get_potential_energy() (calculates every time)
 """
 
-
-
-
 import numpy as np
 from ase import Atoms
 from ase.calculators.lj import LennardJones
@@ -27,15 +24,13 @@ from mating import mating
 import mutators
 import time
 import argparse
+
+
 def debug(*args, **kwargs) -> None:
     """Alias for print() function.
     This can easily be redefined to disable all output.
     """
     print("[DEBUG]: ", *args, **kwargs)
-
-
-
-
 
 
 def generate_cluster(cluster_size, radius) -> Atoms:
@@ -87,10 +82,9 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     for cluster in population:
         cluster.calc = calc
         optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
-
         # TODO: Maybe change steps? This is just a guess
 
-    return [cluster.get_potential_energy() for cluster in population]
+      return [cluster.get_potential_energy() for cluster in population]
 
 
 def fitness(population, func="exponential") -> np.ndarray:
@@ -106,8 +100,7 @@ def fitness(population, func="exponential") -> np.ndarray:
         (List[Atoms])           : Optimised population
     """
     # Normalise the energies
-    energies = np.array([cluster.get_potential_energy()
-                        for cluster in population])
+    energies = np.array([cluster.get_potential_energy() for cluster in population])
 
     normalised_energies = (energies - np.min(energies)) / \
         (np.max(energies) - np.min(energies))
@@ -126,6 +119,7 @@ def fitness(population, func="exponential") -> np.ndarray:
         print(f"'{func}' is not a valid fitness function. Using default")
         return fitness(population)
 
+      
 def parse_args():
     """Parsing the most important parameters
     This will make it easy to run with different values (e.g. on a cluster)
