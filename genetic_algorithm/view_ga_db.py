@@ -8,14 +8,14 @@ import os
 
 def show_db(db):
     print("\nShowing the contents of the database:")
-    print("-------------------------------------------------------------")
-    print("| ID | Cluster Size | Pop. Size | Max Gens | Max NO Success |")
-    print("-------------------------------------------------------------")
+    print("----------------------------------------------------------------------")
+    print("| ID | Cluster Size | Pop. Size | Max Gens | Max NO Success |  Energy |")
+    print("----------------------------------------------------------------------")
     for i in range(len(db)):
         row = db[i+1]
         print(f"|{row.id:3d} |{row.cluster_size:13d} |{row.pop_size:10d} |"
-              f"{row.max_gens:9d} |{row.max_no_success:15d} |")
-    print("-------------------------------------------------------------")
+              f"{row.max_gens:9d} |{row.max_no_success:15d} |{row.energy:8.3f} |")
+    print("----------------------------------------------------------------------")
 
 
 def show_help():
