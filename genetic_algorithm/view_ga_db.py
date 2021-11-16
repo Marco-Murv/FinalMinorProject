@@ -55,11 +55,11 @@ while True:
 
         try:
             view_ids = [int(view_id) for view_id in view_ids]
+
         except ValueError:
             if 'q' in view_ids or 'Q' in view_ids:
                 sys.exit("\n\nExiting...\n")
-            elif 'h' in view_ids:
-                show_help()
+
             else:
                 print("ERROR: Invalid option.")
                 show_help()
