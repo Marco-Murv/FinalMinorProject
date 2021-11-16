@@ -6,8 +6,6 @@ We can add more information later.
 """
 
 """NOTES
-    * TODO: Refactor "atoms" -> "cluster"
-    * TODO: Write to a file to keep everything we run
     * TODO: Something might be wrong with the fitness values
     * FIXME: Why are the potential energies negative? What is 0?
     * TODO: See other TODOs in the file.
@@ -32,8 +30,6 @@ import argparse
 import yaml
 import os
 import sys
-
-
 def debug(*args, **kwargs) -> None:
     """Alias for print() function.
     This can easily be redefined to disable all output.
@@ -166,9 +162,10 @@ def main() -> None:
     # np.random.seed(241)
     np.seterr(divide='raise')
 
-    # Parse possible input, otherwise use default parameters
-    p = parse_args()
+    # Connect to database
+    db = ase.db.connect('./genetic_algorithm_results.db')
 
+    # Get configuration of parameters
     config_f_name = "./run_config.yaml"
     with open(config_f_name) as f:
         conf = yaml.safe_load(os.path.expandvars(f.read()))
@@ -198,6 +195,8 @@ def main() -> None:
 
     # Keep track of global minima. Initialised with random cluster
     best_minima = [population[0]]
+    local_minima = [population[0]]
+    energies_minima = np.array(population[0].get_potential_energy())
 
     # Keep track of iterations
     gen = 0
@@ -207,22 +206,27 @@ def main() -> None:
         debug(f"Generation {gen:2d} - Population size = {len(population)}")
 
         # Mating - get new population
-        children = mating(population, population_fitness,
-                          children_perc, mating_method)
+        children = mating(population, population_fitness, children_perc, mating_method)
 
         # Mutating (Choose 1 out of 4 mutators)
-        mutants = mutators.displacement_static(
-            population, 0.05, cluster_radius)
-        mutants += mutators.displacement_dynamic(
-            population, 0.05, cluster_radius)
+        mutants = mutators.displacement_static(population, 0.05, cluster_radius)
+        mutants += mutators.displacement_dynamic(population, 0.05, cluster_radius)
         mutants += mutators.rotation(population, 0.05)
-        mutants += mutators.replacement(population,
-                                        cluster_size, cluster_radius, 0.05)
+        mutants += mutators.replacement(population, cluster_size, cluster_radius, 0.05)
         mutants += mutators.mirror_shift(population, cluster_size, 0.05)
 
         # Local minimisation and add to population
         newborns = children + mutants
+
+
+
         energies += optimise_local(newborns, calc, local_optimiser)
+
+        for i in range(len(newborns)):
+            if not np.any(np.isclose(energies_minima, energies[-(i+1)], atol=delta_energy_thr)):
+                local_minima.append(newborns[i])
+                energies_minima = np.append(energies_minima, energies[i])
+
         population += newborns
 
         # Natural selection
@@ -247,10 +251,12 @@ def main() -> None:
         population = new_population.copy()
         energies = new_energies.copy()
 
+
         # Store current best
         if energies[0] < best_minima[-1].get_potential_energy():
-            best_minima.append(population[0])
-            debug("New local minimum: ", energies[0])
+            best_minima.append(population[0]) 
+            debug("New global minimum: ", energies[0])
+
             gen_no_success = 0
 
         else:
@@ -262,14 +268,23 @@ def main() -> None:
     debug("All the minima we found:")
     debug([cluster.get_potential_energy() for cluster in best_minima])
 
-    db = ase.db.connect('./genetic_algorithm_results.db')
-    db.write(best_minima[-1], pop_size=pop_size, cluster_size=cluster_size,
-             max_gens=max_gen, max_no_success=max_no_success)
+    for cluster in local_minima:
+        global_min = False
+        if cluster == best_minima[-1]:
+            global_min = True
+
+        last_id = db.write(cluster, global_min=global_min,
+                                pop_size=pop_size,
+                                cluster_size=cluster_size, max_gens=max_gen,
+                                max_no_success=max_no_success, run_id=run_id)
 
     # How to retrieve atoms:
     # atom_db = db.get(natoms=cluster_size, pop_size=10, ...).toatoms()
-
     #  view(best_minima[-1])
+
+    conf['run_id'] += 1
+    with open(config_f_name, 'w') as f:
+        yaml.dump(conf, f)
 
     return
 
