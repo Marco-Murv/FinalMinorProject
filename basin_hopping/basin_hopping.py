@@ -14,25 +14,36 @@ RANK = COMM.Get_rank()
 
 # Constants
 # Max iterations
-MAX_ITERATIONS = 500
+MAX_ITERATIONS = 5000
+STOP_ITERATIONS = 100
 # Cluster size
-N = 5
+N = 3
 # Cluster accept rate
 ACCEPT_RATE = 0.5
 # Step size adjustment interval
 INTERVAL = 10
 # Stepsize adjustment factor
 FACTOR = 0.9
-# Radius of initial configuration in Angstrom
-R = 5.5
+# Radius of initial configuration
+R = 2.5 # Å
+MAX_R = 3.0 # Å
 # Temperature for metropolis acceptance criterion
 BOLTZMANN = 8.61733034e-5 # eV/K
 T = 100 * BOLTZMANN
 
 # Global variables
 stepSize = 0.5
-nAccept = 1
-nTotal = 1
+nAccept = 1.0
+nTotal = 1.0
+
+# Class for storing cluster configurations
+class Cluster:
+    def __init__(self, positions, potential_energy) -> None:
+        self.positions = positions
+        self.potential_energy = potential_energy
+    
+    def __str__(self) -> str:
+        return f"Cluster(positions={self.positions}, potential_energy={self.potential_energy})"
 
 def generateConfiguration():
     # Generate normally distributed points on the surface of the sphere
@@ -45,7 +56,7 @@ def generateConfiguration():
 
 def displaceConfiguration(X):
     # Displace points uniformly
-    return X + np.random.uniform(-stepSize, stepSize, (N, 3))
+    return np.clip(X + np.random.uniform(-stepSize, stepSize, (N, 3)), -MAX_R, MAX_R)
 
 def localMinimisation(atoms):
     optimiser = LBFGS(atoms, logfile=None)
@@ -72,10 +83,11 @@ def basinHopping(X, verbose=False):
 
     atoms = Atoms(positions=X, calculator=LennardJones())
     localMinimisation(atoms)
-    minX = X
     prevE = atoms.get_potential_energy()
-    minE = prevE
-    steps_left = 100
+    minCluster = Cluster(X, prevE)
+
+    clusters = [minCluster]
+    steps_left = STOP_ITERATIONS
 
     # Max iterations
     for _ in range(MAX_ITERATIONS):
@@ -85,12 +97,15 @@ def basinHopping(X, verbose=False):
         localMinimisation(atoms)
         # Potential energy
         E = atoms.get_potential_energy()
-        if E < minE:
-            minE = E
-            minX = newX
-            steps_left = 100
+        if E < minCluster.potential_energy:
+            print(f"New local minimum = {E}")
+            minCluster = Cluster(newX, E)
+            clusters.append(minCluster)
+            steps_left = STOP_ITERATIONS
         else:
             steps_left -= 1
+        if steps_left < 0:
+            break
         dE = E - prevE
         # Acceptance
         acc = accept(dE)
@@ -107,7 +122,7 @@ def basinHopping(X, verbose=False):
         X = newX
         prevE = E
     
-    return minE, minX
+    return minCluster, clusters
 
 def main():
     # Generate initial configurations
@@ -118,17 +133,17 @@ def main():
 
     # Run basin hopping algorithm
     print(f"Process {RANK} started")
-    E, X = basinHopping(X, True)
+    minCluster, clusters = basinHopping(X, False)
     print(f"Process {RANK} finished")
 
     # Gather results
-    potential_energies = COMM.gather(E)
-    configurations = COMM.gather(X)
+    minClusters = COMM.gather(minCluster)
+    allClusters = COMM.gather(clusters)
 
     # Print results
     if RANK == 0:
-        print(potential_energies)
-        print(configurations)
+        print(minClusters)
+        # print(allClusters)
 
 if __name__ == "__main__":
     main()
