@@ -15,19 +15,22 @@ We can add more information later.
     * TODO: Use less .get_potential_energy() (calculates every time)
 """
 
-import numpy as np
 
+
+
+import numpy as np
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
 from ase.visualize import view
 from ase.io import write
 import ase.db
-
 from typing import List
 from mating import mating
 import mutators
 import argparse
+import yaml
+import os
 import sys
 
 
@@ -110,7 +113,8 @@ def fitness(population, func="exponential") -> np.ndarray:
         (List[Atoms])           : Optimised population
     """
     # Normalise the energies
-    energies = np.array([cluster.get_potential_energy() for cluster in population])
+    energies = np.array([cluster.get_potential_energy()
+                        for cluster in population])
 
     normalised_energies = (energies - np.min(energies)) / \
         (np.max(energies) - np.min(energies))
@@ -135,15 +139,24 @@ def parse_args():
     This will make it easy to run with different values (e.g. on a cluster)
     """
     parser = argparse.ArgumentParser(description='Genetic Algorithm PGGO')
-    parser.add_argument('--cluster_size', default=10, type=int, help='Number of atoms per cluster', metavar='')
-    parser.add_argument('--pop_size', default=5, type=int, help='Number of clusters in the population', metavar='')
-    parser.add_argument('--fitness_func', default="exponential", help='Fitness function', metavar='')
-    parser.add_argument('--mating_method', default="roulette", help='Mating Method', metavar='')
-    parser.add_argument('--children_perc', default=0.8, type=float, help='Fraction of the population that will have a child', metavar='')
-    parser.add_argument('--cluster_radius', default=2.0, type=float, help='Dimension of initial random clusters', metavar='')
-    parser.add_argument('--max_no_success', default=10, type=int, help='Consecutive generations allowed without new minimum', metavar='')
-    parser.add_argument('--max_gen', default=50, type=int, help='Maximum number of generations', metavar='')
-    parser.add_argument('--delta_energy_thr', default=0.01, type=float, help='Minimum difference in energy between clusters (DeltaE threshold)', metavar='')
+    parser.add_argument('--cluster_size', default=10, type=int,
+                        help='Number of atoms per cluster', metavar='')
+    parser.add_argument('--pop_size', default=5, type=int,
+                        help='Number of clusters in the population', metavar='')
+    parser.add_argument('--fitness_func', default="exponential",
+                        help='Fitness function', metavar='')
+    parser.add_argument('--mating_method', default="roulette",
+                        help='Mating Method', metavar='')
+    parser.add_argument('--children_perc', default=0.8, type=float,
+                        help='Fraction of the population that will have a child', metavar='')
+    parser.add_argument('--cluster_radius', default=2.0, type=float,
+                        help='Dimension of initial random clusters', metavar='')
+    parser.add_argument('--max_no_success', default=10, type=int,
+                        help='Consecutive generations allowed without new minimum', metavar='')
+    parser.add_argument('--max_gen', default=50, type=int,
+                        help='Maximum number of generations', metavar='')
+    parser.add_argument('--delta_energy_thr', default=0.01, type=float,
+                        help='Minimum difference in energy between clusters (DeltaE threshold)', metavar='')
 
     args = parser.parse_args()
     return args
@@ -156,16 +169,32 @@ def main() -> None:
     # Parse possible input, otherwise use default parameters
     p = parse_args()
 
+    config_f_name = "./run_config.yaml"
+    with open(config_f_name) as f:
+        conf = yaml.safe_load(os.path.expandvars(f.read()))
+
+    cluster_size = conf['cluster_size']
+    pop_size = conf['pop_size']
+    fitness_func = conf['fitness_func']
+    mating_method = conf['mating_method']
+    children_perc = conf['children_perc']
+    cluster_radius = conf['cluster_radius']
+    max_no_success = conf['max_no_success']
+    max_gen = conf['max_gen']
+    delta_energy_thr = conf['delta_energy_thr']
+    run_id = conf['run_id']
+
     # Make local optimisation Optimiser and calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
 
     # Generate initial population and optimise locally
-    population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius)
+    population = generate_population(
+        pop_size, cluster_size, cluster_radius)
     energies = optimise_local(population, calc, local_optimiser)
 
     # Determine fitness
-    population_fitness = fitness(population, p.fitness_func)
+    population_fitness = fitness(population, fitness_func)
 
     # Keep track of global minima. Initialised with random cluster
     best_minima = [population[0]]
@@ -174,19 +203,22 @@ def main() -> None:
     gen = 0
     gen_no_success = 0
 
-    while gen_no_success < p.max_no_success and gen < p.max_gen:
+    while gen_no_success < max_no_success and gen < max_gen:
         debug(f"Generation {gen:2d} - Population size = {len(population)}")
 
         # Mating - get new population
         children = mating(population, population_fitness,
-                          p.children_perc, p.mating_method)
+                          children_perc, mating_method)
 
         # Mutating (Choose 1 out of 4 mutators)
-        mutants = mutators.displacement_static(population, 0.05, p.cluster_radius)
-        mutants += mutators.displacement_dynamic(population, 0.05, p.cluster_radius)
+        mutants = mutators.displacement_static(
+            population, 0.05, cluster_radius)
+        mutants += mutators.displacement_dynamic(
+            population, 0.05, cluster_radius)
         mutants += mutators.rotation(population, 0.05)
-        mutants += mutators.replacement(population, p.cluster_size, p.cluster_radius, 0.05)
-        mutants += mutators.mirror_shift(population, p.cluster_size, 0.05)
+        mutants += mutators.replacement(population,
+                                        cluster_size, cluster_radius, 0.05)
+        mutants += mutators.mirror_shift(population, cluster_size, 0.05)
 
         # Local minimisation and add to population
         newborns = children + mutants
@@ -194,7 +226,7 @@ def main() -> None:
         population += newborns
 
         # Natural selection
-        population_fitness = fitness(population, p.fitness_func)
+        population_fitness = fitness(population, fitness_func)
 
         # Sort based on fitness, check if not too close (DeltaEnergy)
         # and select popul_size best
@@ -204,11 +236,11 @@ def main() -> None:
         new_population = [population[pop_sort_i[pop_i]]]
         new_energies = [new_population[0].get_potential_energy()]
 
-        while len(new_population) < p.pop_size and pop_i < len(pop_sort_i)-1:
+        while len(new_population) < pop_size and pop_i < len(pop_sort_i)-1:
             pop_i += 1
             candidate = population[pop_sort_i[pop_i]]
 
-            if abs(candidate.get_potential_energy() - new_energies[-1]) > p.delta_energy_thr:
+            if abs(candidate.get_potential_energy() - new_energies[-1]) > delta_energy_thr:
                 new_population.append(candidate)
                 new_energies.append(candidate.get_potential_energy())
 
@@ -231,11 +263,11 @@ def main() -> None:
     debug([cluster.get_potential_energy() for cluster in best_minima])
 
     db = ase.db.connect('./genetic_algorithm_results.db')
-    db.write(best_minima[-1], pop_size=p.pop_size, cluster_size=p.cluster_size,
-             max_gens=p.max_gen, max_no_success=p.max_no_success)
+    db.write(best_minima[-1], pop_size=pop_size, cluster_size=cluster_size,
+             max_gens=max_gen, max_no_success=max_no_success)
 
     # How to retrieve atoms:
-    # atom_db = db.get(natoms=p.cluster_size, pop_size=10, ...).toatoms()
+    # atom_db = db.get(natoms=cluster_size, pop_size=10, ...).toatoms()
 
     #  view(best_minima[-1])
 

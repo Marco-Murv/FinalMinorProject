@@ -8,9 +8,9 @@ import os
 
 def show_db(db):
     print("\nShowing the contents of the database:")
-    print("----------------------------------------------------------------------")
+    print("-----------------------------------------------------------------------")
     print("| ID | Cluster Size | Pop. Size | Max Gens | Max NO Success |  Energy |")
-    print("----------------------------------------------------------------------")
+    print("-----------------------------------------------------------------------")
     for i in range(len(db)):
         row = db[i+1]
         print(f"|{row.id:3d} |{row.cluster_size:13d} |{row.pop_size:10d} |"

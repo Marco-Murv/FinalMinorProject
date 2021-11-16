@@ -1,0 +1,10 @@
+cluster_size: 10
+pop_size: 12
+fitness_func: "exponential"
+mating_method: "roulette"
+children_perc: 0.8
+cluster_radius: 2.0
+max_no_success: 10
+max_gen: 50
+delta_energy_thr: 0.001
+run_id: 1
