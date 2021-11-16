@@ -3,14 +3,20 @@ from mpi4py import MPI
 import numpy as np
 import math
 
+from ase import Atoms
+from ase.optimize import LBFGS
+from ase.calculators.lj import LennardJones
+
 # Initialize MPI related constants
 COMM = MPI.COMM_WORLD
 SIZE = COMM.Get_size()
 RANK = COMM.Get_rank()
 
 # Constants
+# Max iterations
+MAX_ITERATIONS = 500
 # Cluster size
-N = 10
+N = 5
 # Cluster accept rate
 ACCEPT_RATE = 0.5
 # Step size adjustment interval
@@ -20,12 +26,13 @@ FACTOR = 0.9
 # Radius of initial configuration in Angstrom
 R = 5.5
 # Temperature for metropolis acceptance criterion
-T = 0.8
+BOLTZMANN = 8.61733034e-5 # eV/K
+T = 100 * BOLTZMANN
 
 # Global variables
 stepSize = 0.5
-nAccept = 0.0
-nTotal = 0.0
+nAccept = 1
+nTotal = 1
 
 def generateConfiguration():
     # Generate normally distributed points on the surface of the sphere
@@ -39,6 +46,10 @@ def generateConfiguration():
 def displaceConfiguration(X):
     # Displace points uniformly
     return X + np.random.uniform(-stepSize, stepSize, (N, 3))
+
+def localMinimisation(atoms):
+    optimiser = LBFGS(atoms, logfile=None)
+    optimiser.run(steps=50)
 
 # Metropolis acceptance criterion
 def accept(dE):
@@ -56,26 +67,47 @@ def adjustStepSize():
         # Too few steps are accepted, decrease step size.
         stepSize *= FACTOR
 
-def basinHopping(X):
+def basinHopping(X, verbose=False):
     global nTotal, nAccept
 
-    while True:
+    atoms = Atoms(positions=X, calculator=LennardJones())
+    localMinimisation(atoms)
+    minX = X
+    prevE = atoms.get_potential_energy()
+    minE = prevE
+    steps_left = 100
+
+    # Max iterations
+    for _ in range(MAX_ITERATIONS):
         newX = displaceConfiguration(X)
+        atoms.set_positions(newX)
         # Local minimisation
-        dE = ...
+        localMinimisation(atoms)
+        # Potential energy
+        E = atoms.get_potential_energy()
+        if E < minE:
+            minE = E
+            minX = newX
+            steps_left = 100
+        else:
+            steps_left -= 1
+        dE = E - prevE
         # Acceptance
         acc = accept(dE)
         # Increase step totals
         nTotal += 1
         nAccept += 1 if acc else 0
         if nTotal % INTERVAL == 0: adjustStepSize()
+        # Print intermediate result
+        if verbose:
+            print(f"potential energy = {E}, accepted = {acc}, accept rate = {nAccept / nTotal}")
         # If configuration is not accepted, continue with previous configuration
         if not acc: continue
         # Else, continue with new configuration
         X = newX
-        break
+        prevE = E
     
-    return X
+    return minE, minX
 
 def main():
     # Generate initial configurations
@@ -85,13 +117,18 @@ def main():
     X = COMM.scatter(data)
 
     # Run basin hopping algorithm
-    # X = basinHopping(X)
+    print(f"Process {RANK} started")
+    E, X = basinHopping(X, True)
+    print(f"Process {RANK} finished")
 
     # Gather results
-    result = COMM.gather(X)
+    potential_energies = COMM.gather(E)
+    configurations = COMM.gather(X)
 
     # Print results
     if RANK == 0:
-        print(result)
+        print(potential_energies)
+        print(configurations)
 
-main()
+if __name__ == "__main__":
+    main()
