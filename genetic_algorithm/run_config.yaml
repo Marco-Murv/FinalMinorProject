@@ -7,4 +7,4 @@ mating_method: roulette
 max_gen: 50
 max_no_success: 10
 pop_size: 3
-run_id: 24
+run_id: 51

@@ -175,7 +175,7 @@ def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
     return [generate_cluster(cluster_size, radius) for i in range(popul_size)]
 
 
-def optimise_local(population, calc, optimiser) -> List[Atoms]:
+def optimise_local(population, calc, optimiser) -> List[float]:
     """Local optimisation of the population. The clusters in the population
     are optimised and can be used after this function is called. Moreover,
     calculate and return the final optimised potential energy of the clusters.
@@ -183,7 +183,7 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     :param population: List of clusters to be locally optimised
     :param calc: ASE Calculator for potential energy (e.g. LJ)
     :param optimiser: ASE Optimiser (e.g. LBFGS)
-    :returns: -> Optimised population
+    :returns: -> Energies of optimised population
     """
     for cluster in population:
         cluster.calc = calc
