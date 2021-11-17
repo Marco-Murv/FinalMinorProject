@@ -24,23 +24,23 @@ Example run_config.yaml:
     * TODO: See other TODOs in the file.
 """
 
-
-
-
 import numpy as np
+import yaml
+import os
+import sys
+
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
 from ase.visualize import view
 from ase.io import write
 import ase.db
+
 from typing import List
 from mating import mating
 import mutators
 import argparse
-import yaml
-import os
-import sys
+
 def debug(*args, **kwargs) -> None:
     """Alias for print() function.
     This can easily be redefined to disable all output.
@@ -58,7 +58,6 @@ def generate_cluster(cluster_size, radius) -> Atoms:
     :returns: -> new random cluster
 
     """
-
     coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
 
     # TODO: Can we use "mathematical dots" instead of H-atoms
@@ -140,26 +139,26 @@ def parse_args():
 
     """
     parser = argparse.ArgumentParser(description='Genetic Algorithm PGGO')
-    parser.add_argument('--cluster_size', default=10, type=int,
-                        help='Number of atoms per cluster', metavar='')
-    parser.add_argument('--pop_size', default=5, type=int,
-                        help='Number of clusters in the population', metavar='')
-    parser.add_argument('--fitness_func', default="exponential",
-                        help='Fitness function', metavar='')
-    parser.add_argument('--mating_method', default="roulette",
-                        help='Mating Method', metavar='')
-    parser.add_argument('--children_perc', default=0.8, type=float,
-                        help='Fraction of opulation that will have a child',
-                        metavar='')
-    parser.add_argument('--cluster_radius', default=2.0, type=float,
-                        help='Dimension of initial random clusters', metavar='')
-    parser.add_argument('--max_no_success', default=10, type=int,
-                        help='Consecutive generations without new minimum',
-                        metavar='')
-    parser.add_argument('--max_gen', default=50, type=int,
-                        help='Maximum number of generations', metavar='')
-    parser.add_argument('--delta_energy_thr', default=0.01, type=float,
-                        help='Minimum difference in energy between clusters (DeltaE threshold)', metavar='')
+    parser.add_argument('--cluster_size', type=int, metavar='',
+                        help='Number of atoms per cluster')
+    parser.add_argument('--pop_size', type=int, metavar='',
+                        help='Number of clusters in the population')
+    parser.add_argument('--fitness_func', metavar='',
+                        help='Fitness function')
+    parser.add_argument('--mating_method', metavar='',
+                        help='Mating Method')
+    parser.add_argument('--children_perc', type=float, metavar='',
+                        help='Fraction of opulation that will have a child')
+    parser.add_argument('--cluster_radius', default=2.0, type=float, metavar='',
+                        help='Dimension of initial random clusters')
+    parser.add_argument('--max_no_success', default=10, type=int, metavar='',
+                        help='Consecutive generations without new minimum')
+    parser.add_argument('--max_gen', type=int, metavar='',
+                        help='Maximum number of generations')
+    parser.add_argument('--delta_energy_thr', type=float, metavar='',
+                        help='Minimum difference in energy between clusters')
+    parser.add_argument('--run_id', type=int, metavar='',
+                        help="ID for the current run. Increments automatically")
 
     args = parser.parse_args()
     return args
@@ -176,32 +175,36 @@ def main() -> None:
     db_file = "genetic_algorithm_results.db"
     config_file = "run_config.yaml"
 
-    # Connect to database and get parameters
+    # Connect to database
     db_file = os.path.join(os.path.dirname(__file__), db_file)
     db = ase.db.connect('./genetic_algorithm_results.db')
 
+    # Get parameters from config file
     config_file = os.path.join(os.path.dirname(__file__), config_file)
     with open(config_file) as f:
         conf = yaml.safe_load(os.path.expandvars(f.read()))
 
-    cluster_size = conf['cluster_size']
-    pop_size = conf['pop_size']
-    fitness_func = conf['fitness_func']
-    mating_method = conf['mating_method']
-    children_perc = conf['children_perc']
-    cluster_radius = conf['cluster_radius']
-    max_no_success = conf['max_no_success']
-    max_gen = conf['max_gen']
-    delta_energy_thr = conf['delta_energy_thr']
-    run_id = conf['run_id']
+    # Parse terminal input
+    p = parse_args()
+
+    # Set variables to terminal input if possible, otherwise use config file
+    cluster_size = p.cluster_size or conf['cluster_size']
+    pop_size = p.pop_size or conf['pop_size']
+    fitness_func = p.fitness_func or conf['fitness_func']
+    mating_method = p.mating_method or conf['mating_method']
+    children_perc = p.children_perc or conf['children_perc']
+    cluster_radius = p.cluster_radius or conf['cluster_radius']
+    max_no_success = p.max_no_success or conf['max_no_success']
+    max_gen = p.max_gen or conf['max_gen']
+    dE_thr = p.delta_energy_thr or conf['delta_energy_thr']
+    run_id = p.run_id or conf['run_id']
 
     # Make local optimisation Optimiser and calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
 
     # Generate initial population and optimise locally
-    pop = generate_population(
-        pop_size, cluster_size, cluster_radius)
+    pop = generate_population(pop_size, cluster_size, cluster_radius)
     energies = optimise_local(pop, calc, local_optimiser)
 
     # Determine fitness
@@ -226,7 +229,7 @@ def main() -> None:
         mutants = mutators.displacement_static(pop, 0.05, cluster_radius)
         mutants += mutators.displacement_dynamic(pop, 0.05, cluster_radius)
         mutants += mutators.rotation(pop, 0.05)
-        mutants += mutators.replacement(pop,cluster_size, cluster_radius, 0.05)
+        mutants += mutators.replacement(pop, cluster_size, cluster_radius, 0.05)
         mutants += mutators.mirror_shift(pop, cluster_size, 0.05)
 
         # Local minimisation and add to population
@@ -235,8 +238,7 @@ def main() -> None:
         energies += optimise_local(newborns, calc, local_optimiser)
 
         for i in range(len(newborns)):
-            too_close = np.isclose(
-                energies_min, energies[-(i+1)], atol=delta_energy_thr)
+            too_close = np.isclose(energies_min, energies[-(i+1)], atol=dE_thr)
             if not np.any(too_close):
                 local_min.append(newborns[i])
                 energies_min = np.append(energies_min, energies[i])
@@ -260,7 +262,7 @@ def main() -> None:
             candidate = pop[sorted_i]
             cand_energy = energies[sorted_i]
 
-            if abs(cand_energy - new_energies[-1]) > delta_energy_thr:
+            if abs(cand_energy - new_energies[-1]) > dE_thr:
                 new_pop.append(candidate)
                 new_energies.append(cand_energy)
 
@@ -273,7 +275,7 @@ def main() -> None:
             best_min.append(pop[0])
             debug("New global minimum: ", energies[0])
 
-            gen_no_success = 0 # This is success, so set to zero.
+            gen_no_success = 0  # This is success, so set to zero.
 
         else:
             gen_no_success += 1
@@ -303,7 +305,7 @@ def main() -> None:
     with open(config_file, 'w') as f:
         yaml.dump(conf, f)
 
-    return
+    return 0
 
 
 if __name__ == '__main__':
