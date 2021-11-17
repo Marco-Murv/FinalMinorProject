@@ -1,9 +1,9 @@
 #!/bin/python3
 
+
 """
 Genetic algorithm for geometry optimisation of atomic clusters.
 We can add more information later.
-
 This program requires a file called `run_config.yaml` in the same directory.
 Example run_config.yaml:
 ```yaml
@@ -24,29 +24,51 @@ Example run_config.yaml:
     * TODO: See other TODOs in the file.
 """
 
-
-
-
 import numpy as np
 import yaml
 import os
 import sys
+import varname
+
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
 from ase.visualize import view
 from ase.io import write
 import ase.db
+
 from typing import List
 from mating import mating
 import mutators
 import argparse
+from datetime import datetime as dt
+
+
 def debug(*args, **kwargs) -> None:
     """Alias for print() function.
     This can easily be redefined to disable all output.
 
     """
-    print("[DEBUG]: ", *args, **kwargs)
+    print("[DEBUG]: ", flush=True, *args, **kwargs)
+
+
+def config_info(cluster_size, pop_size, fitness_func, max_gen, max_no_success):
+    """Log the most important info to stdout.
+
+    """
+    timestamp = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    n=63
+    print(" ---------------------------------------------------------------- ")
+    print(f"| {f'Parallel Global Geometry Optimisation':{n}s}|")
+    print(f"| {f'Genetic Algorithm':{n}s}|")
+    print(" ================================================================ ")
+    print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
+    print(f"| {f'cluster size       : {cluster_size}':{n}s}|")
+    print(f"| {f'Population size    : {pop_size}':{n}s}|")
+    print(f"| {f'Fitness function   : {fitness_func}':{n}s}|")
+    print(f"| {f'Max gen wo success : {max_no_success}':{n}s}|")
+    print(f"| {f'Maximum generations: {max_gen}':{n}s}|")
+    print(" ---------------------------------------------------------------- ")
 
 
 def generate_cluster(cluster_size, radius) -> Atoms:
@@ -58,10 +80,11 @@ def generate_cluster(cluster_size, radius) -> Atoms:
     :returns: -> new random cluster
 
     """
-    coords = np.random.uniform(-radius/2, radius/2, (cluster_size, 3)).tolist()
+    coords = np.random.uniform(-radius / 2, radius / 2,
+                               (cluster_size, 3)).tolist()
 
     # TODO: Can we use "mathematical dots" instead of H-atoms
-    new_cluster = Atoms('H'+str(cluster_size), coords)
+    new_cluster = Atoms('H' + str(cluster_size), coords)
 
     return new_cluster
 
@@ -192,20 +215,22 @@ def genetic_algorithm() -> None:
     p = parse_args()
 
     # Set variables to terminal input if possible, otherwise use config file
-    cluster_size = p.cluster_size or conf['cluster_size']
-    pop_size = p.pop_size or conf['pop_size']
-    fitness_func = p.fitness_func or conf['fitness_func']
-    mating_method = p.mating_method or conf['mating_method']
-    children_perc = p.children_perc or conf['children_perc']
-    cluster_radius = p.cluster_radius or conf['cluster_radius']
-    max_no_success = p.max_no_success or conf['max_no_success']
-    max_gen = p.max_gen or conf['max_gen']
-    dE_thr = p.delta_energy_thr or conf['delta_energy_thr']
-    run_id = p.run_id or conf['run_id']
+    cluster_size    = p.cluster_size or conf['cluster_size']
+    pop_size        = p.pop_size or conf['pop_size']
+    fitness_func    = p.fitness_func or conf['fitness_func']
+    mating_method   = p.mating_method or conf['mating_method']
+    children_perc   = p.children_perc or conf['children_perc']
+    cluster_radius  = p.cluster_radius or conf['cluster_radius']
+    max_no_success  = p.max_no_success or conf['max_no_success']
+    max_gen         = p.max_gen or conf['max_gen']
+    dE_thr          = p.delta_energy_thr or conf['delta_energy_thr']
+    run_id          = p.run_id or conf['run_id']
 
     # Make local optimisation Optimiser and calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
+
+    config_info(cluster_size, pop_size, fitness_func, max_gen, max_no_success)
 
     # =========================================================================
     # Initial population
@@ -250,7 +275,8 @@ def genetic_algorithm() -> None:
         energies += optimise_local(newborns, calc, local_optimiser)
 
         for i in range(len(newborns)):
-            too_close = np.isclose(energies_min, energies[-(i+1)], atol=dE_thr)
+            too_close = np.isclose(
+                energies_min, energies[-(i + 1)], atol=dE_thr)
             if not np.any(too_close):
                 local_min.append(newborns[i])
                 energies_min = np.append(energies_min, energies[i])
@@ -268,7 +294,7 @@ def genetic_algorithm() -> None:
         new_pop = [pop[pop_sort_i[count]]]
         new_energies = [new_pop[0].get_potential_energy()]
 
-        while len(new_pop) < pop_size and count < len(pop_sort_i)-1:
+        while len(new_pop) < pop_size and count < len(pop_sort_i) - 1:
             count += 1
             sorted_i = pop_sort_i[count]
             candidate = pop[sorted_i]
