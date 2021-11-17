@@ -24,23 +24,23 @@ Example run_config.yaml:
     * TODO: See other TODOs in the file.
 """
 
+
+
+
 import numpy as np
 import yaml
 import os
 import sys
-
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
 from ase.visualize import view
 from ase.io import write
 import ase.db
-
 from typing import List
 from mating import mating
 import mutators
 import argparse
-
 def debug(*args, **kwargs) -> None:
     """Alias for print() function.
     This can easily be redefined to disable all output.
@@ -175,6 +175,10 @@ def genetic_algorithm() -> None:
     db_file = "genetic_algorithm_results.db"
     config_file = "run_config.yaml"
 
+    # =========================================================================
+    # Parameters and database
+    # =========================================================================
+
     # Connect to database
     db_file = os.path.join(os.path.dirname(__file__), db_file)
     db = ase.db.connect('./genetic_algorithm_results.db')
@@ -203,6 +207,10 @@ def genetic_algorithm() -> None:
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
 
+    # =========================================================================
+    # Initial population
+    # =========================================================================
+
     # Generate initial population and optimise locally
     pop = generate_population(pop_size, cluster_size, cluster_radius)
     energies = optimise_local(pop, calc, local_optimiser)
@@ -215,6 +223,9 @@ def genetic_algorithm() -> None:
     local_min = [pop[0]]
     energies_min = np.array(pop[0].get_potential_energy())
 
+    # =========================================================================
+    # Main loop
+    # =========================================================================
     # Keep track of iterations
     gen = 0
     gen_no_success = 0
@@ -229,7 +240,8 @@ def genetic_algorithm() -> None:
         mutants = mutators.displacement_static(pop, 0.05, cluster_radius)
         mutants += mutators.displacement_dynamic(pop, 0.05, cluster_radius)
         mutants += mutators.rotation(pop, 0.05)
-        mutants += mutators.replacement(pop, cluster_size, cluster_radius, 0.05)
+        mutants += mutators.replacement(pop,
+                                        cluster_size, cluster_radius, 0.05)
         mutants += mutators.mirror_shift(pop, cluster_size, 0.05)
 
         # Local minimisation and add to population

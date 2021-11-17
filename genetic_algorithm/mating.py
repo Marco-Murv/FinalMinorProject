@@ -7,9 +7,11 @@ When there are enough parents, the children are created one by one.
 
 """
 NOTES here
-    * TODO: Make sure the atoms are not on top of each other.
-    * 
+    * TODO:
 """
+
+
+
 
 import numpy as np
 from ase import Atoms
@@ -18,12 +20,11 @@ import math as m
 def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
     """Making child from two parents
 
-    Args:
-        parent1 (List[Atoms]) : First parent cluster
-        parent2 (List[Atoms]) : Second parent cluster
+    :param parent1: First parent cluster
+    :param parent2: Second parent cluster
+    :param atol:  (Default value = 1e-8)
+    :returns: child-> Offspring cluster
 
-    Returns:
-        child (Atoms) : Offspring cluster
     """
 
     cluster_size = len(parent1.positions)
@@ -43,7 +44,8 @@ def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
         for coord_j in coords[:i]:
             while np.allclose(coords[i], coord_j, atol=atol):
                 print("Too close!!")
-                coords[i] = [coord+atol*np.random.rand() for coord in coords[i]]
+                coords[i] = [coord+atol*np.random.rand()
+                             for coord in coords[i]]
 
     if coords.size < cluster_size:
         print("PROBLEM IN make_child: not enough atoms in the child.")
@@ -57,18 +59,17 @@ def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
     return child
 
 
-def mating(population, population_fitness, children_perc, method="roulette", tournament_size=2) -> List[Atoms]:
+def mating(population, population_fitness, children_perc, method="roulette",
+           tournament_size=2) -> List[Atoms]:
     """Generate children for the given population
 
-    Args:
-        population (List[Atoms])        : Pulation
-        population_fitness (List[float]): the fitness values
-        children_perc (float):          : fraction of the population in [0, 1]
-        method (string)                 : in {"roulette", "tournament"}
-        tournament_size (int)           : parents per tournament
+    :param population: Pulation
+    :param population_fitness: the fitness values
+    :param children_perc: : fraction of the population in [0, 1]
+    :param method: in {"roulette", "tournament"} (Default value = "roulette")
+    :param tournament_size: parents per tournament (Default value = 2)
+    :returns: children ([Atoms])
 
-    Returns:
-        children ([Atoms])
     """
 
     num_children = m.ceil(children_perc * len(population))
