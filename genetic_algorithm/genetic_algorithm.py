@@ -164,7 +164,7 @@ def parse_args():
     return args
 
 
-def main() -> None:
+def genetic_algorithm() -> None:
     """The main genetic algorithm 
 
     """
@@ -309,4 +309,4 @@ def main() -> None:
 
 
 if __name__ == '__main__':
-    main()
+    genetic_algorithm()
