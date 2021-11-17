@@ -82,6 +82,8 @@ class Config():
     max_gen: int = None
     dE_thr: float = None
     run_id: int = None
+    calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
+    local_optimiser = LBFGS
 
 
 def get_configuration(config_file):
@@ -246,8 +248,7 @@ def genetic_algorithm() -> None:
     c = get_configuration(config_file)
 
     # Make local optimisation Optimiser and calculator
-    calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
-    local_optimiser = LBFGS
+
 
     # Output the run info to stdout
     config_info(c)
@@ -258,7 +259,7 @@ def genetic_algorithm() -> None:
 
     # Generate initial population and optimise locally
     pop = generate_population(c.pop_size, c.cluster_size, c.cluster_radius)
-    energies = optimise_local(pop, calc, local_optimiser)
+    energies = optimise_local(pop, c.calc, c.local_optimiser)
 
     # Determine fitness
     pop_fitness = fitness(pop, c.fitness_func)
@@ -292,7 +293,7 @@ def genetic_algorithm() -> None:
         # Local minimisation and add to population
         newborns = children + mutants
 
-        energies += optimise_local(newborns, calc, local_optimiser)
+        energies += optimise_local(newborns, c.calc, c.local_optimiser)
 
         for i in range(len(newborns)):
             too_close = np.isclose(
