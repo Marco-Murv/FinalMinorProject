@@ -84,87 +84,6 @@ class Config():
     run_id: int = None
 
 
-def generate_cluster(cluster_size, radius) -> Atoms:
-    """Generate a random cluster with set number of atoms
-    The atoms will be placed within a (radius x radius x radius) cube.
-
-    :param cluster_size: number of atoms per cluster
-    :param radius: dimension of the space where atoms can be placed.
-    :returns: -> new random cluster
-    """
-    coords = np.random.uniform(-radius / 2, radius / 2,
-                               (cluster_size, 3)).tolist()
-
-    # TODO: Can we use "mathematical dots" instead of H-atoms
-    new_cluster = Atoms('H' + str(cluster_size), coords)
-
-    return new_cluster
-
-
-def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
-    """Generate initial population.
-
-    :param popul_size: number of clusters in the population
-    :param cluster_size: number of atoms in each cluster
-    :param radius: dimension of the initial random clusters
-    :returns: -> List of clusters
-    """
-    return [generate_cluster(cluster_size, radius) for i in range(popul_size)]
-
-
-def optimise_local(population, calc, optimiser) -> List[Atoms]:
-    """Local optimisation of the population. The clusters in the population
-    are optimised and can be used after this function is called. Moreover,
-    calculate and return the final optimised potential energy of the clusters.
-
-    :param population: List of clusters to be locally optimised
-    :param calc: ASE Calculator for potential energy (e.g. LJ)
-    :param optimiser: ASE Optimiser (e.g. LBFGS)
-    :returns: -> Optimised population
-    """
-    for cluster in population:
-        cluster.calc = calc
-        try:
-            optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
-        except:  # TODO: how to properly handle these error cases?
-            print("FATAL ERROR: DIVISION BY ZERO ENCOUNTERED!")
-            sys.exit("PROGRAM ABORTED: FATAL ERROR")
-
-        # TODO: Maybe change steps? This is just a guess
-
-    return [cluster.get_potential_energy() for cluster in population]
-
-
-def fitness(population, func="exponential") -> np.ndarray:
-    """Calculate the fitness of the clusters in the population
-
-    :param population: List of clusters to calculate fitness
-    :param func: Fitness function ("exponential" / "linear" / "hyperbolic")
-    :param optimiser: ASE Optimiser (e.g. LBFGS)
-    :returns: -> Optimised population
-    """
-    # Normalise the energies
-    energies = np.array([cluster.get_potential_energy()
-                        for cluster in population])
-
-    normalised_energies = (energies - np.min(energies)) / \
-        (np.max(energies) - np.min(energies))
-
-    if func == "exponential":
-        alpha = 3  # TODO: How general is this value? Change?
-        return np.exp(- alpha * normalised_energies)
-
-    elif func == "linear":
-        return 1 - 0.7 * normalised_energies
-
-    elif func == "hyperbolic":
-        return 0.5 * (1 - np.tanh(2 * energies - 1))
-
-    else:
-        print(f"'{func}' is not a valid fitness function. Using default")
-        return fitness(population)
-
-
 def get_configuration(config_file):
     """Set the parameters for this run.
 
@@ -224,6 +143,83 @@ def get_configuration(config_file):
         yaml.dump(yaml_conf, f)
 
     return c
+
+
+def generate_cluster(cluster_size, radius) -> Atoms:
+    """Generate a random cluster with set number of atoms
+    The atoms will be placed within a (radius x radius x radius) cube.
+
+    :param cluster_size: number of atoms per cluster
+    :param radius: dimension of the space where atoms can be placed.
+    :returns: -> new random cluster
+    """
+    coords = np.random.uniform(-radius / 2, radius / 2,
+                               (cluster_size, 3)).tolist()
+
+    # TODO: Can we use "mathematical dots" instead of H-atoms
+    new_cluster = Atoms('H' + str(cluster_size), coords)
+
+    return new_cluster
+
+
+def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
+    """Generate initial population.
+
+    :param popul_size: number of clusters in the population
+    :param cluster_size: number of atoms in each cluster
+    :param radius: dimension of the initial random clusters
+    :returns: -> List of clusters
+    """
+    return [generate_cluster(cluster_size, radius) for i in range(popul_size)]
+
+
+def optimise_local(population, calc, optimiser) -> List[Atoms]:
+    """Local optimisation of the population. The clusters in the population
+    are optimised and can be used after this function is called. Moreover,
+    calculate and return the final optimised potential energy of the clusters.
+
+    :param population: List of clusters to be locally optimised
+    :param calc: ASE Calculator for potential energy (e.g. LJ)
+    :param optimiser: ASE Optimiser (e.g. LBFGS)
+    :returns: -> Optimised population
+    """
+    for cluster in population:
+        cluster.calc = calc
+        try:
+            optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
+        except:  # TODO: how to properly handle these error cases?
+            print("FATAL ERROR: DIVISION BY ZERO ENCOUNTERED!")
+            sys.exit("PROGRAM ABORTED: FATAL ERROR")
+
+        # TODO: Maybe change steps? This is just a guess
+
+    return [cluster.get_potential_energy() for cluster in population]
+
+
+def fitness(energies, func="exponential") -> np.ndarray:
+    """Calculate the fitness of the clusters in the population
+
+    :param energies: List of potential energies of the population
+    :param func: Fitness function ("exponential" / "linear" / "hyperbolic")
+    :returns: -> Optimised population
+    """
+    # Normalise the energies
+    normalised_energies = (energies - np.min(energies)) / \
+        (np.max(energies) - np.min(energies))
+
+    if func == "exponential":
+        alpha = 3  # TODO: How general is this value? Change?
+        return np.exp(- alpha * normalised_energies)
+
+    elif func == "linear":
+        return 1 - 0.7 * normalised_energies
+
+    elif func == "hyperbolic":
+        return 0.5 * (1 - np.tanh(2 * energies - 1))
+
+    else:
+        print(f"'{func}' is not a valid fitness function. Using default")
+        return fitness(energies)
 
 
 def genetic_algorithm() -> None:
@@ -308,7 +304,8 @@ def genetic_algorithm() -> None:
         pop += newborns
 
         # Natural selection
-        pop_fitness = fitness(pop, c.fitness_func)
+
+        pop_fitness = fitness(energies, c.fitness_func)
 
         # Sort based on fitness, check if not too close (DeltaEnergy)
         # and select popul_size best

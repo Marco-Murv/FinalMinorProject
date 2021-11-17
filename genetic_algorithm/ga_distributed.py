@@ -23,13 +23,23 @@ def organiser():
     c = ga.get_configuration(config_file)
     # Create initial population
     pop = ga.generate_population(c.pop_size)
+    
     # Broadcast initial population
+    # Also distribute how large their sub-population should be 
+
+
+    # Receive coordinates and energies
+
+    # Perform natural selection
+
 
     # Initiate lists for local minima and their energies
 
     pass
 
 def worker():
+    # Receive complete population coordinates
+    #
     pass
 
 def ga_distributed():
