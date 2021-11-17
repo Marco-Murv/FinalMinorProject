@@ -31,16 +31,19 @@ import numpy as np
 import yaml
 import os
 import sys
+import ase.db
+import mutators
+import argparse
+import matplotlib.pyplot as plt
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
 from ase.visualize import view
 from ase.io import write
-import ase.db
 from typing import List
 from mating import mating
-import mutators
-import argparse
+
+
 def debug(*args, **kwargs) -> None:
     """Alias for print() function.
     This can easily be redefined to disable all output.
@@ -164,6 +167,30 @@ def parse_args():
     return args
 
 
+def plot_EPP(lowest_energies, highest_energies, average_energies):
+    """
+    This function will show the EPP (Evolutionary Progress Plot) of this GA run.
+
+    @param lowest_energies: list containing the minimum energy in each generation
+    @param highest_energies: list containing the highest energy in each generation
+    @param average_energies: list containing the average energy in each generation
+    @return:
+    """
+    gens = np.arange(0, len(lowest_energies))
+
+    plt.figure(1)
+    plt.plot(gens, lowest_energies, 'b', marker='o')
+    plt.plot(gens, highest_energies, 'r', marker='o')
+    plt.plot(gens, average_energies, 'g', marker='o')
+    plt.legend(['min energy', 'max energy', 'avg energy'], loc="upper right")
+    plt.title("The lowest, highest, and average energy in each generation")
+    plt.xlabel("generations")
+    plt.ylabel("energy")
+    plt.show()
+
+    return 0
+
+
 def genetic_algorithm() -> None:
     """The main genetic algorithm 
 
@@ -206,6 +233,11 @@ def genetic_algorithm() -> None:
     # Make local optimisation Optimiser and calculator
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
+
+    # Lists for EPP plots
+    lowest_energies = []
+    highest_energies = []
+    average_energies = []
 
     # =========================================================================
     # Initial population
@@ -282,6 +314,11 @@ def genetic_algorithm() -> None:
         pop = new_pop.copy()
         energies = new_energies.copy()
 
+        # Store info about lowest, average, and highest energy of this gen
+        lowest_energies.append(energies[0])
+        highest_energies.append(energies[-1])
+        average_energies.append(np.mean(energies))
+
         # Store current best
         if energies[0] < best_min[-1].get_potential_energy():
             best_min.append(pop[0])
@@ -309,9 +346,10 @@ def genetic_algorithm() -> None:
                            cluster_size=cluster_size, max_gens=max_gen,
                            max_no_success=max_no_success, run_id=run_id)
 
-    # How to retrieve atoms:
-    # atom_db = db.get(natoms=cluster_size, pop_size=10, ...).toatoms()
-    #  view(best_minima[-1])
+    # Show EPP plot if desired
+    show_EPP = True
+    if show_EPP:
+        plot_EPP(lowest_energies, highest_energies, average_energies)
 
     conf['run_id'] += 1
     with open(config_file, 'w') as f:
