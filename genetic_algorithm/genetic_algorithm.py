@@ -43,6 +43,8 @@ from typing import List
 from mating import mating
 from datetime import datetime as dt
 from dataclasses import dataclass
+
+
 def debug(*args, **kwargs) -> None:
     """Alias for print() function.
     This can easily be redefined to disable all output.
@@ -251,7 +253,7 @@ def plot_EPP(lowest_energies, highest_energies, average_energies):
 def genetic_algorithm() -> None:
     """The main genetic algorithm 
     """
-    # np.random.seed(241)
+    # np.random.seed(241) # TODO: there seems to be an issue still when analysing the EPP
     np.seterr(divide='raise')
 
     # Provide file name
@@ -339,7 +341,8 @@ def genetic_algorithm() -> None:
 
         # Sort based on fitness, check if not too close (DeltaEnergy)
         # and select popul_size best
-        pop_sort_i = np.argsort(-pop_fitness)
+        # pop_sort_i = np.argsort(-pop_fitness) # TODO: what causes incorrect results using this?
+        pop_sort_i = np.argsort(energies)
 
         count = 0
         new_pop = [pop[pop_sort_i[count]]]
@@ -363,6 +366,8 @@ def genetic_algorithm() -> None:
         lowest_energies.append(energies[0])
         highest_energies.append(energies[-1])
         average_energies.append(np.mean(energies))
+        if average_energies[-1] > 0:
+            print(energies)
 
         # Store current best
         if energies[0] < best_min[-1].get_potential_energy():
@@ -377,7 +382,7 @@ def genetic_algorithm() -> None:
         gen += 1
 
     # Store / report
-    debug(f"Found {len(local_min)} local minima. in total")
+    debug(f"Found {len(local_min)} local minima in total.")
     debug("The evolution of the global minimum:")
     debug([cluster.get_potential_energy() for cluster in best_min])
 
