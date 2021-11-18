@@ -27,20 +27,19 @@ Example run_config.yaml:
 import numpy as np
 import yaml
 import os
-import sys
-import varname
+import matplotlib.pyplot as plt
+import ase.db
+import mutators
+import argparse
+import ase.db
 
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
 from ase.visualize import view
 from ase.io import write
-import ase.db
-
 from typing import List
 from mating import mating
-import mutators
-import argparse
 from datetime import datetime as dt
 from dataclasses import dataclass
 
@@ -189,11 +188,9 @@ def optimise_local(population, calc, optimiser) -> List[float]:
         cluster.calc = calc
         try:
             optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
-        except:  # TODO: how to properly handle these error cases?
-            print("FATAL ERROR: DIVISION BY ZERO ENCOUNTERED!")
-            sys.exit("PROGRAM ABORTED: FATAL ERROR")
-
-        # TODO: Maybe change steps? This is just a guess
+        except:  # delete cluster from population if invalid energy value
+            population.remove(cluster)
+            debug("DIVIDE BY ZERO REMOVED FROM POPULATION!")
 
     return [cluster.get_potential_energy() for cluster in population]
 
@@ -201,16 +198,15 @@ def optimise_local(population, calc, optimiser) -> List[float]:
 def fitness(energies, func="exponential") -> np.ndarray:
     """Calculate the fitness of the clusters in the population
 
-    :param energies: List of potential energies of the population
+    :param energies: List of cluster energies
     :param func: Fitness function ("exponential" / "linear" / "hyperbolic")
-    :returns: -> Optimised population
+    :returns: -> fitness values of population
     """
     # Normalise the energies
-    normalised_energies = (energies - np.min(energies)) / \
-        (np.max(energies) - np.min(energies))
+    normalised_energies = (np.array(energies) - np.min(energies)) / (np.max(energies) - np.min(energies))
 
     if func == "exponential":
-        alpha = 3  # TODO: How general is this value? Change?
+        alpha = 3
         return np.exp(- alpha * normalised_energies)
 
     elif func == "linear":
@@ -222,6 +218,91 @@ def fitness(energies, func="exponential") -> np.ndarray:
     else:
         print(f"'{func}' is not a valid fitness function. Using default")
         return fitness(energies)
+
+
+def get_configuration(config_file):
+    """Set the parameters for this run.
+
+    :param config_file: Filename to the yaml configuration
+    :type config_file: str
+    :return: object with all the configuration parameters
+    :rtype: Config
+    """
+
+    # Get parameters from config file
+    config_file = os.path.join(os.path.dirname(__file__), config_file)
+    with open(config_file) as f:
+        yaml_conf = yaml.safe_load(os.path.expandvars(f.read()))
+
+    # Create parser for terminal input
+    parser = argparse.ArgumentParser(description='Genetic Algorithm PGGO')
+
+    parser.add_argument('--cluster_size', type=int, metavar='',
+                        help='Number of atoms per cluster')
+    parser.add_argument('--pop_size', type=int, metavar='',
+                        help='Number of clusters in the population')
+    parser.add_argument('--fitness_func', metavar='',
+                        help='Fitness function')
+    parser.add_argument('--mating_method', metavar='',
+                        help='Mating Method')
+    parser.add_argument('--children_perc', type=float, metavar='',
+                        help='Fraction of opulation that will have a child')
+    parser.add_argument('--cluster_radius', default=2.0, type=float, metavar='',
+                        help='Dimension of initial random clusters')
+    parser.add_argument('--max_no_success', default=10, type=int, metavar='',
+                        help='Consecutive generations without new minimum')
+    parser.add_argument('--max_gen', type=int, metavar='',
+                        help='Maximum number of generations')
+    parser.add_argument('--delta_energy_thr', type=float, metavar='',
+                        help='Minimum difference in energy between clusters')
+    parser.add_argument('--run_id', type=int, metavar='',
+                        help="ID for the current run. Increments automatically")
+
+    p = parser.parse_args()
+
+    c = Config()
+    # Set variables to terminal input if possible, otherwise use config file
+    c.cluster_size = p.cluster_size or yaml_conf['cluster_size']
+    c.pop_size = p.pop_size or yaml_conf['pop_size']
+    c.fitness_func = p.fitness_func or yaml_conf['fitness_func']
+    c.mating_method = p.mating_method or yaml_conf['mating_method']
+    c.children_perc = p.children_perc or yaml_conf['children_perc']
+    c.cluster_radius = p.cluster_radius or yaml_conf['cluster_radius']
+    c.max_no_success = p.max_no_success or yaml_conf['max_no_success']
+    c.max_gen = p.max_gen or yaml_conf['max_gen']
+    c.dE_thr = p.delta_energy_thr or yaml_conf['delta_energy_thr']
+    c.run_id = p.run_id or yaml_conf['run_id']
+
+    # Increment run_id for next run
+    yaml_conf['run_id'] += 1
+    with open(config_file, 'w') as f:
+        yaml.dump(yaml_conf, f)
+
+    return c
+
+
+def plot_EPP(lowest_energies, highest_energies, average_energies):
+    """
+    This function will show the EPP (Evolutionary Progress Plot) of this GA run.
+
+    @param lowest_energies: list containing the minimum energy in each generation
+    @param highest_energies: list containing the highest energy in each generation
+    @param average_energies: list containing the average energy in each generation
+    @return:
+    """
+    gens = np.arange(0, len(lowest_energies))
+
+    plt.figure(1)
+    plt.plot(gens, lowest_energies, 'b', marker='o')
+    plt.plot(gens, highest_energies, 'r', marker='o')
+    plt.plot(gens, average_energies, 'g', marker='o')
+    plt.legend(['min energy', 'max energy', 'avg energy'], loc="upper right")
+    plt.title("The lowest, highest, and average energy in each generation")
+    plt.xlabel("generations")
+    plt.ylabel("energy")
+    plt.show()
+
+    return 0
 
 
 def genetic_algorithm() -> None:
@@ -248,10 +329,16 @@ def genetic_algorithm() -> None:
     c = get_configuration(config_file)
 
     # Make local optimisation Optimiser and calculator
-
-
+    calc = LennardJones(sigma=1.0, epsilon=1.0)
+    local_optimiser = LBFGS
+    
     # Output the run info to stdout
     config_info(c)
+
+    # Lists for EPP plots
+    lowest_energies = []
+    highest_energies = []
+    average_energies = []
 
     # =========================================================================
     # Initial population
@@ -262,7 +349,7 @@ def genetic_algorithm() -> None:
     energies = optimise_local(pop, c.calc, c.local_optimiser)
 
     # Determine fitness
-    pop_fitness = fitness(pop, c.fitness_func)
+    pop_fitness = fitness(energies, c.fitness_func)
 
     # Keep track of global minima. Initialised with random cluster
     best_min = [pop[0]]
@@ -286,14 +373,14 @@ def genetic_algorithm() -> None:
         mutants = mutators.displacement_static(pop, 0.05, c.cluster_radius)
         mutants += mutators.displacement_dynamic(pop, 0.05, c.cluster_radius)
         mutants += mutators.rotation(pop, 0.05)
-        mutants += mutators.replacement(pop,
-                                        c.cluster_size, c.cluster_radius, 0.05)
+        mutants += mutators.replacement(pop, c.cluster_size, c.cluster_radius, 0.05)
         mutants += mutators.mirror_shift(pop, c.cluster_size, 0.05)
 
         # Local minimisation and add to population
         newborns = children + mutants
 
-        energies += optimise_local(newborns, c.calc, c.local_optimiser)
+        energies += optimise_local(newborns, calc, local_optimiser)
+        pop += newborns
 
         for i in range(len(newborns)):
             too_close = np.isclose(
@@ -302,15 +389,11 @@ def genetic_algorithm() -> None:
                 local_min.append(newborns[i])
                 energies_min = np.append(energies_min, energies[i])
 
-        pop += newborns
-
         # Natural selection
-
-        pop_fitness = fitness(energies, c.fitness_func)
 
         # Sort based on fitness, check if not too close (DeltaEnergy)
         # and select popul_size best
-        pop_sort_i = np.argsort(-pop_fitness)
+        pop_sort_i = np.argsort(energies)
 
         count = 0
         new_pop = [pop[pop_sort_i[count]]]
@@ -329,6 +412,12 @@ def genetic_algorithm() -> None:
         # Store newly formed population
         pop = new_pop.copy()
         energies = new_energies.copy()
+        pop_fitness = fitness(energies, c.fitness_func)
+
+        # Store info about lowest, average, and highest energy of this gen
+        lowest_energies.append(energies[0])
+        highest_energies.append(energies[-1])
+        average_energies.append(np.mean(energies))
 
         # Store current best
         if energies[0] < best_min[-1].get_potential_energy():
@@ -343,7 +432,7 @@ def genetic_algorithm() -> None:
         gen += 1
 
     # Store / report
-    debug(f"Found {len(local_min)} local minima. in total")
+    debug(f"Found {len(local_min)} local minima in total.")
     debug("The evolution of the global minimum:")
     debug([cluster.get_potential_energy() for cluster in best_min])
 
@@ -356,9 +445,10 @@ def genetic_algorithm() -> None:
                            cluster_size=c.cluster_size, max_gens=c.max_gen,
                            max_no_success=c.max_no_success, run_id=c.run_id)
 
-    # How to retrieve atoms:
-    # atom_db = db.get(natoms=cluster_size, pop_size=10, ...).toatoms()
-    #  view(best_minima[-1])
+    # Show EPP plot if desired
+    show_EPP = True
+    if show_EPP:
+        plot_EPP(lowest_energies, highest_energies, average_energies)
 
     return 0
 

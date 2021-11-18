@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 children_perc: 0.8
 cluster_radius: 3.0
 cluster_size: 10
@@ -8,3 +9,15 @@ max_gen: 50
 max_no_success: 10
 pop_size: 3
 run_id: 51
+=======
+children_perc: 0.8
+cluster_radius: 2.0
+cluster_size: 20
+delta_energy_thr: 0.001
+fitness_func: exponential
+mating_method: roulette
+max_gen: 50
+max_no_success: 5
+pop_size: 8
+run_id: 8
+>>>>>>> genetic-algorithm
