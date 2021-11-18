@@ -145,6 +145,9 @@ def get_configuration(config_file):
 
     return c
 
+    calc = LennardJones(sigma=1.0, epsilon=1.0)
+    local_optimiser = LBFGS
+
 
 def generate_cluster(cluster_size, radius) -> Atoms:
     """Generate a random cluster with set number of atoms
@@ -328,9 +331,6 @@ def genetic_algorithm() -> None:
     # Parse terminal input
     c = get_configuration(config_file)
 
-    # Make local optimisation Optimiser and calculator
-    calc = LennardJones(sigma=1.0, epsilon=1.0)
-    local_optimiser = LBFGS
     
     # Output the run info to stdout
     config_info(c)
@@ -379,7 +379,7 @@ def genetic_algorithm() -> None:
         # Local minimisation and add to population
         newborns = children + mutants
 
-        energies += optimise_local(newborns, calc, local_optimiser)
+        energies += optimise_local(newborns, c.calc, c.local_optimiser)
         pop += newborns
 
         for i in range(len(newborns)):
