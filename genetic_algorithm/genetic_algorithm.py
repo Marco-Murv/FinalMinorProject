@@ -135,20 +135,15 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     return [cluster.get_potential_energy() for cluster in population]
 
 
-def fitness(population, func="exponential") -> np.ndarray:
+def fitness(energies, func="exponential") -> np.ndarray:
     """Calculate the fitness of the clusters in the population
 
-    :param population: List of clusters to calculate fitness
+    :param energies: List of cluster energies
     :param func: Fitness function ("exponential" / "linear" / "hyperbolic")
-    :param optimiser: ASE Optimiser (e.g. LBFGS)
     :returns: -> Optimised population
     """
     # Normalise the energies
-    energies = np.array([cluster.get_potential_energy()
-                        for cluster in population])
-
-    normalised_energies = (energies - np.min(energies)) / \
-        (np.max(energies) - np.min(energies))
+    normalised_energies = (np.array(energies) - np.min(energies)) / (np.max(energies) - np.min(energies))
 
     if func == "exponential":
         alpha = 3  # TODO: How general is this value? Change?
@@ -162,7 +157,7 @@ def fitness(population, func="exponential") -> np.ndarray:
 
     else:
         print(f"'{func}' is not a valid fitness function. Using default")
-        return fitness(population)
+        return fitness(energies)
 
 
 def get_configuration(config_file):
@@ -253,7 +248,7 @@ def plot_EPP(lowest_energies, highest_energies, average_energies):
 def genetic_algorithm() -> None:
     """The main genetic algorithm 
     """
-    # np.random.seed(241) # TODO: there seems to be an issue still when analysing the EPP
+    # np.random.seed(241)
     np.seterr(divide='raise')
 
     # Provide file name
@@ -294,7 +289,7 @@ def genetic_algorithm() -> None:
     energies = optimise_local(pop, calc, local_optimiser)
 
     # Determine fitness
-    pop_fitness = fitness(pop, c.fitness_func)
+    pop_fitness = fitness(energies, c.fitness_func)
 
     # Keep track of global minima. Initialised with random cluster
     best_min = [pop[0]]
@@ -318,14 +313,14 @@ def genetic_algorithm() -> None:
         mutants = mutators.displacement_static(pop, 0.05, c.cluster_radius)
         mutants += mutators.displacement_dynamic(pop, 0.05, c.cluster_radius)
         mutants += mutators.rotation(pop, 0.05)
-        mutants += mutators.replacement(pop,
-                                        c.cluster_size, c.cluster_radius, 0.05)
+        mutants += mutators.replacement(pop, c.cluster_size, c.cluster_radius, 0.05)
         mutants += mutators.mirror_shift(pop, c.cluster_size, 0.05)
 
         # Local minimisation and add to population
         newborns = children + mutants
 
         energies += optimise_local(newborns, calc, local_optimiser)
+        pop += newborns
 
         for i in range(len(newborns)):
             too_close = np.isclose(
@@ -334,14 +329,10 @@ def genetic_algorithm() -> None:
                 local_min.append(newborns[i])
                 energies_min = np.append(energies_min, energies[i])
 
-        pop += newborns
-
         # Natural selection
-        pop_fitness = fitness(pop, c.fitness_func)
 
         # Sort based on fitness, check if not too close (DeltaEnergy)
         # and select popul_size best
-        # pop_sort_i = np.argsort(-pop_fitness) # TODO: what causes incorrect results using this?
         pop_sort_i = np.argsort(energies)
 
         count = 0
@@ -361,13 +352,12 @@ def genetic_algorithm() -> None:
         # Store newly formed population
         pop = new_pop.copy()
         energies = new_energies.copy()
+        pop_fitness = fitness(energies, c.fitness_func)
 
         # Store info about lowest, average, and highest energy of this gen
         lowest_energies.append(energies[0])
         highest_energies.append(energies[-1])
         average_energies.append(np.mean(energies))
-        if average_energies[-1] > 0:
-            print(energies)
 
         # Store current best
         if energies[0] < best_min[-1].get_potential_energy():
