@@ -27,18 +27,17 @@ Example run_config.yaml:
 import numpy as np
 import yaml
 import os
-import sys
 import matplotlib.pyplot as plt
 import ase.db
 import mutators
 import argparse
-import varname
+import ase.db
+
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
 from ase.visualize import view
 from ase.io import write
-import ase.db
 from typing import List
 from mating import mating
 from datetime import datetime as dt
@@ -126,11 +125,9 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
         cluster.calc = calc
         try:
             optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
-        except:  # TODO: how to properly handle these error cases?
-            print("FATAL ERROR: DIVISION BY ZERO ENCOUNTERED!")
-            sys.exit("PROGRAM ABORTED: FATAL ERROR")
-
-        # TODO: Maybe change steps? This is just a guess
+        except:  # delete cluster from population if invalid energy value
+            population.remove(cluster)
+            debug("DIVIDE BY ZERO REMOVED FROM POPULATION!")
 
     return [cluster.get_potential_energy() for cluster in population]
 
@@ -140,13 +137,13 @@ def fitness(energies, func="exponential") -> np.ndarray:
 
     :param energies: List of cluster energies
     :param func: Fitness function ("exponential" / "linear" / "hyperbolic")
-    :returns: -> Optimised population
+    :returns: -> fitness values of population
     """
     # Normalise the energies
     normalised_energies = (np.array(energies) - np.min(energies)) / (np.max(energies) - np.min(energies))
 
     if func == "exponential":
-        alpha = 3  # TODO: How general is this value? Change?
+        alpha = 3
         return np.exp(- alpha * normalised_energies)
 
     elif func == "linear":
@@ -269,7 +266,7 @@ def genetic_algorithm() -> None:
     c = get_configuration(config_file)
 
     # Make local optimisation Optimiser and calculator
-    calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
+    calc = LennardJones(sigma=1.0, epsilon=1.0)
     local_optimiser = LBFGS
     
     # Output the run info to stdout
