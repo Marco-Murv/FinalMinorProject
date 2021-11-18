@@ -9,3 +9,5 @@
 *.vscode/
 *.db
 *.yaml
+
+*.png
