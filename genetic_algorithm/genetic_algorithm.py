@@ -245,6 +245,68 @@ def plot_EPP(lowest_energies, highest_energies, average_energies):
     return 0
 
 
+def get_mutants(pop, cluster_radius, cluster_size, p_static=0.05, p_dynamic=0.05,
+                p_rotation=0.05, p_replacement=0.05, p_mirror=0.05):
+    """
+    Generates all the mutants for the given population.
+    The default probability of each mutation happening to any individual cluster in the population is set to 5%.
+
+    @param pop: population of clusters
+    @param cluster_radius: cluster radius used when generating the initial clusters
+    @param cluster_size: number of atoms in a cluster
+    @param p_static: probability of static displacement mutation happening to a cluster
+    @param p_dynamic: probability of dynamic displacement mutation happening to a cluster
+    @param p_rotation: probability of a rotation mutation happening to a cluster
+    @param p_replacement: probability of a replacement mutation happening to a cluster
+    @param p_mirror: probability of a mirror and shift mutation happening to a cluster
+    @return: a list of mutated clusters
+    """
+    mutants = mutators.displacement_static(pop, p_static, cluster_radius)
+    mutants += mutators.displacement_dynamic(pop, p_dynamic, cluster_radius)
+    mutants += mutators.rotation(pop, p_rotation)
+    mutants += mutators.replacement(pop, cluster_size, cluster_radius, p_replacement)
+    mutants += mutators.mirror_shift(pop, cluster_size, p_mirror)
+
+    return mutants
+
+
+def natural_selection_step(pop, energies, pop_fitness, pop_size, dE_thr, fitness_func):
+    """
+    Applies a natural selection step to the given population.
+
+    @param pop: population of clusters
+    @param energies: energies corresponding to each cluster in population
+    @param pop_fitness: fitness values corresponding to each cluster in population
+    @param pop_size: maximum population size
+    @param dE_thr: minimum energy threshold for clusters with nearly equal energies
+    @param fitness_func: function used for calculating fitness values
+    @return: smaller population after natural selection with the corresponding energy and fitness values
+    """
+    # Sort based on energies, check if not too close (DeltaEnergy) and select popul_size best
+    pop_sort_i = np.argsort(energies)
+
+    count = 0
+    new_pop = [pop[pop_sort_i[count]]]
+    new_energies = [new_pop[0].get_potential_energy()]
+
+    while len(new_pop) < pop_size and count < len(pop_sort_i) - 1:
+        count += 1
+        sorted_i = pop_sort_i[count]
+        candidate = pop[sorted_i]
+        cand_energy = energies[sorted_i]
+
+        if abs(cand_energy - new_energies[-1]) > dE_thr:
+            new_pop.append(candidate)
+            new_energies.append(cand_energy)
+
+    # Store newly formed population
+    pop = new_pop.copy()
+    energies = new_energies.copy()
+    pop_fitness = fitness(energies, fitness_func)
+
+    return pop, energies, pop_fitness
+
+
 def genetic_algorithm() -> None:
     """The main genetic algorithm 
     """
@@ -306,12 +368,8 @@ def genetic_algorithm() -> None:
         # Mating - get new population
         children = mating(pop, pop_fitness, c.children_perc, c.mating_method)
 
-        # Mutating (Choose 1 out of 4 mutators)
-        mutants = mutators.displacement_static(pop, 0.05, c.cluster_radius)
-        mutants += mutators.displacement_dynamic(pop, 0.05, c.cluster_radius)
-        mutants += mutators.rotation(pop, 0.05)
-        mutants += mutators.replacement(pop, c.cluster_size, c.cluster_radius, 0.05)
-        mutants += mutators.mirror_shift(pop, c.cluster_size, 0.05)
+        # Mutating
+        mutants = get_mutants(pop, c.cluster_radius, c.cluster_size)
 
         # Local minimisation and add to population
         newborns = children + mutants
@@ -327,31 +385,9 @@ def genetic_algorithm() -> None:
                 energies_min = np.append(energies_min, energies[i])
 
         # Natural selection
+        pop, energies, pop_fitness = natural_selection_step(pop, energies, pop_fitness, c.pop_size, c.dE_thr, c.fitness_func)
 
-        # Sort based on fitness, check if not too close (DeltaEnergy)
-        # and select popul_size best
-        pop_sort_i = np.argsort(energies)
-
-        count = 0
-        new_pop = [pop[pop_sort_i[count]]]
-        new_energies = [new_pop[0].get_potential_energy()]
-
-        while len(new_pop) < c.pop_size and count < len(pop_sort_i) - 1:
-            count += 1
-            sorted_i = pop_sort_i[count]
-            candidate = pop[sorted_i]
-            cand_energy = energies[sorted_i]
-
-            if abs(cand_energy - new_energies[-1]) > c.dE_thr:
-                new_pop.append(candidate)
-                new_energies.append(cand_energy)
-
-        # Store newly formed population
-        pop = new_pop.copy()
-        energies = new_energies.copy()
-        pop_fitness = fitness(energies, c.fitness_func)
-
-        # Store info about lowest, average, and highest energy of this gen
+        # Store info about lowest, average, and highest energy of this gen for EPP
         lowest_energies.append(energies[0])
         highest_energies.append(energies[-1])
         average_energies.append(np.mean(energies))
