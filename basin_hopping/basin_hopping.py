@@ -2,8 +2,7 @@
 import argparse
 import math
 import numpy as np
-import sys
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, List, Optional, Type
 import yaml
 
 from ase import Atoms
@@ -12,6 +11,7 @@ from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
 from ase.optimize.optimize import Optimizer
 from ase.units import kB
+from ase.db import connect
 from ase.visualize import view
 
 class DummyMPI:
@@ -27,10 +27,10 @@ class DummyMPI:
     def gather(self, x):
         return [x]
 
-if 'mpi4py' in sys.modules:
+try:
     from mpi4py import MPI
     COMM = MPI.COMM_WORLD
-else:
+except:
     COMM = DummyMPI()
 
 class CubeConstraint:
@@ -44,6 +44,10 @@ class CubeConstraint:
     def adjust_forces(self, atoms, forces):
         pass
 
+    def todict(self):
+        return {'name': 'CubeConstraint',
+                'kwargs': {'radius': self.radius}}
+
 class BasinHopping:
     """
     Implementation of the basin hopping algorithm described by Wales, D. J., & Doye, J. P. K. (1997).
@@ -52,12 +56,6 @@ class BasinHopping:
     ----------
     atoms: Atoms object
         The atoms object to perform basin hopping on.
-    optimizer: Optimizer object, optional
-        The optimizer used for local optimization.
-    optimizer_logfile: string, None, optional
-        The logfile to write the output of the optimizer to.
-        Use '-' for stdout
-        If None (default), the output of the optimizer is discarded.
     temperature: float, optional
         The temperature parameter for the Metropolis acceptance criterion. (default = 100*kB)
     step_size: float, optional
@@ -68,16 +66,22 @@ class BasinHopping:
         The factor to multiply and divide the step size by. (default = 0.9)
     step_size_interval: int, optional
         The interval for how often to update the step size. (default = 50)
+    optimizer: Optimizer object, optional
+        The optimizer used for local optimization.
+    optimizer_logfile: string, None, optional
+        The logfile to write the output of the optimizer to.
+        Use '-' for stdout
+        If None (default), the output of the optimizer is discarded.
     """
     def __init__(self,
                  atoms: Atoms,
-                 optimizer: Type[Optimizer]=LBFGS,
-                 optimizer_logfile: Optional[str]=None,
                  temperature: float=100*kB,
                  step_size: float=0.5,
                  accept_rate: float=0.5,
                  step_size_factor: float=0.9,
-                 step_size_interval: int=50) -> None:
+                 step_size_interval: int=50,
+                 optimizer: Type[Optimizer]=LBFGS,
+                 optimizer_logfile: Optional[str]=None) -> None:
         self.atoms = atoms
         self.optimizer = optimizer
         self.optimizer_logfile = optimizer_logfile
@@ -91,7 +95,7 @@ class BasinHopping:
         self.min_potential_energy = self.atoms.get_potential_energy()
         self.old_potential_energy = self.min_potential_energy
         self.min_atoms = self.atoms.copy()
-        self.minima = [[0, self.min_potential_energy, self.min_atoms.copy()]]
+        self.minima = [[0, self.min_potential_energy, self.min_atoms.get_positions()]]
     
     def run(self, max_steps: int=5000, stop_steps: Optional[None]=None, verbose: bool=False) -> None:
         """
@@ -117,7 +121,7 @@ class BasinHopping:
             new_potential_energy = self.get_potential_energy()
             # Check if new global minimum was found
             if new_potential_energy < self.min_potential_energy:
-                self.minima.append([self.nTotal+1, new_potential_energy, self.atoms.copy()])
+                self.minima.append([self.nTotal+1, new_potential_energy, self.atoms.get_positions()])
                 self.min_atoms = self.atoms.copy()
                 self.min_potential_energy = new_potential_energy
                 stop_step_count = 0
@@ -179,7 +183,7 @@ class BasinHopping:
             The step the new global minimum was found.
         potential energy: float
             The potential energy of the new global minimum.
-        atom configuration: Atoms
+        atom configuration: List[List[float]]
             The atom configuration of the new global minimum.
         """
         return self.minima
@@ -210,19 +214,24 @@ class BasinHopping:
         # Calculate uniformly distributed points inside the sphere
         positions = XYZ*U[:,np.newaxis]
         # Initialize atoms object
+        # constraints = [Hookean(i, ((j>>2)&1, (j>>1)&1, (j&1)), k, k) for k in [-max_radius, max_radius] for j in [1, 2, 4] for i in range(cluster_size)]
         constraint = None if max_radius is None else CubeConstraint(max_radius)
         return Atoms(positions=positions, constraint=constraint, calculator=calculator())
 
 def main(args: argparse.Namespace):
+    size = COMM.Get_size()
+    rank = COMM.Get_rank()
+
+    if size > 1: print(f"Starting basin hopping in rank {rank}")
     atoms = BasinHopping.generate_initial_configuration(args.cluster_size, args.radius, args.max_radius)
-    basin_hopping = BasinHopping(atoms=atoms, temperature=args.temperature, step_size=args.step_size, accept_rate=args.accept_rate,
-                                 step_size_factor=args.step_size_factor, step_size_interval=args.step_size_interval)
+    basin_hopping = BasinHopping(atoms, args.temperature, args.step_size, args.accept_rate, args.step_size_factor, args.step_size_interval)
     basin_hopping.run(args.max_steps, args.stop_steps, args.verbose)
+    if size > 1: print(f"Basin hopping completed in rank {rank}")
+
     potential_energy = basin_hopping.get_min_potential_energy()
     atoms = basin_hopping.get_min_atoms()
     minima = basin_hopping.get_minima()
 
-    rank = COMM.Get_rank()
     potential_energy = COMM.gather(potential_energy)
     atoms = COMM.gather(atoms)
     minima = COMM.gather(minima)
@@ -234,6 +243,21 @@ def main(args: argparse.Namespace):
         minima = [j for i in minima for j in i]
         # Sort minima
         minima = minima.sort(key=lambda x:x[1])
+        # Save in database
+        db = connect(args.database, type="db")
+        # Remove custom constraint to prevent errors due to ase hardcoding constraint names
+        min_atoms.set_constraint(None)
+        # Calculate energy to include it in the database
+        min_atoms.set_calculator(LennardJones())
+        min_atoms.get_potential_energy()
+        # Update or write
+        try:
+            row = db.get(natoms=args.cluster_size)
+            if min_potential_energy < row.energy:
+                print("Lower global minimum found")
+                db.update(row.id, min_atoms)
+        except:
+            db.write(min_atoms)
         # Display global minimum
         view(min_atoms)
         print(f"Global minimum = {min_potential_energy}")
@@ -241,29 +265,31 @@ def main(args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.")
+    # Require either a config file or the cluster size
     config_type = parser.add_mutually_exclusive_group(required=True)
     config_type.add_argument("-f", "--config-file", type=str, help="The location of the config file")
     config_type.add_argument("-n", "--cluster-size", type=int, help="The size of the cluster")
-    #
+    # 
     parser.add_argument("-r", "--radius", type=float, default=1, help="Radius of the sphere the initial atoms configuration is uniformly distributed in")
-    parser.add_argument("-mr", "--max-radius", type=float, default=None, help="The maximum radius of the cube to constrain the atoms in. If not set, no constraint is placed on the atoms")
+    parser.add_argument("-c", "--max-radius", type=float, default=None, help="The maximum radius of the cube to constrain the atoms in. If not set, no constraint is placed on the atoms")
     #
-    parser.add_argument("-ms", "--max-steps", type=int, default=5000, help="The maximum number of steps the algorithm will take")
-    parser.add_argument("-ss", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
+    parser.add_argument("-m", "--max-steps", type=int, default=5000, help="The maximum number of steps the algorithm will take")
+    parser.add_argument("-s", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
     #
-    parser.add_argument("-T", "--temperature", type=float, default=100*kB, help="The temperature parameter for the Metropolis acceptance criterion")
-    parser.add_argument("-s", "--step-size", type=float, default=0.5, help="The initial value of the step size")
-    parser.add_argument("-a", "--accept-rate", type=float, default=0.5, help="The desired step acceptance rate")
-    parser.add_argument("-sf", "--step-size-factor", type=float, default=0.9, help="The factor to multiply and divide the step size by")
-    parser.add_argument("-si", "--step-size-interval", type=int, default=50, help="The interval for how often to update the step size")
+    parser.add_argument("--temperature", type=float, default=100*kB, help="The temperature parameter for the Metropolis acceptance criterion")
+    parser.add_argument("--step-size", type=float, default=0.5, help="The initial value of the step size")
+    parser.add_argument("--accept-rate", type=float, default=0.5, help="The desired step acceptance rate")
+    parser.add_argument("--step-size-factor", type=float, default=0.9, help="The factor to multiply and divide the step size by")
+    parser.add_argument("--step-size-interval", type=int, default=50, help="The interval for how often to update the step size")
     #
+    parser.add_argument("-db", "--database", default="./basin_hopping.db", help="Database file for storing global minima")
     parser.add_argument("-v", "--verbose", action="store_true", help="Print information about each step")
 
+    # Parse args
     args = parser.parse_args()
+    # Load config file if some file was provided
     if args.config_file is not None:
         config = yaml.load(open(args.config_file), Loader=yaml.FullLoader)
         vars(args).update(config)
-    
-    print(args)
 
     main(args)

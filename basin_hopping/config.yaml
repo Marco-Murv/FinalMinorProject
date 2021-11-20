@@ -1,5 +1,4 @@
 cluster_size: 3
 radius: 1
 max_radius: 1.5
-max_steps: 1000
 stop_steps: 100
