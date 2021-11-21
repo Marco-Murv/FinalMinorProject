@@ -1,4 +1,7 @@
 #!/bin/bash
 
-python3 -m pip install -r requirements.txt -t .
+python3 -m venv envPGGO
+source envPGGO/bin/activate
+
+python3 -m pip install -r requirements.txt
 export PYTONPATH=$PYTONPATH:.
