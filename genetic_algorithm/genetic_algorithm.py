@@ -487,6 +487,8 @@ def genetic_algorithm() -> None:
 
         # Local minimisation and add to population
         newborns = children + mutants
+
+        debug(f"Local optimisation of {len(newborns)} newborns")
         energies += optimise_local(newborns, c.calc, c.local_optimiser)
         pop += newborns
 
