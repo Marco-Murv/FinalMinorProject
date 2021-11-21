@@ -7,13 +7,13 @@ from ase.optimize import LBFGS
 from ase.visualize import view
 from ase.io import write
 import ase.db
-
+import sys
 from typing import List
 # from mating import mating
 # import mutators
 import argparse
 import sys
-
+import employee_bee
 import random
 import math
 
@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument('--mating_method', default="roulette", help='Mating Method', metavar='')
     parser.add_argument('--children_perc', default=0.8, type=float,
                         help='Fraction of the population that will have a child', metavar='')
-    parser.add_argument('--cluster_radius', default=2.0, type=float, help='Dimension of initial random clusters',
+    parser.add_argument('--cluster_radius', default=3.0, type=float, help='Dimension of initial random clusters',
                         metavar='')
     parser.add_argument('--max_no_success', default=10, type=int,
                         help='Consecutive generations allowed without new minimum', metavar='')
@@ -97,46 +97,8 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
 
 
-def EB(pop, Sn, cluster_size, calc, local_optimiser):
 
-    pop_copy = pop.copy()
-    for cluster in pop_copy:
-        cluster.calc = calc
-    for i in range(len(pop)):
-        sum_E = 0
-        E_1 = 0
-        E_2 = 0
-        E_3 = 0
-        while sum_E == 0:
-            random_index = random.sample(range(0, Sn), 3)
-            while random_index[0] == i | random_index[1] == i | random_index[2] == i:
-                random_index = random.sample(range(0, Sn), 3)
-            E_1 = np.abs(pop_copy[0].get_potential_energy())
-            E_2 = np.abs(pop_copy[1].get_potential_energy())
-            E_3 = np.abs(pop_copy[2].get_potential_energy())
-            sum_E = (E_1 + E_2 + E_3)
-
-        p_1 = E_1 / sum_E
-        p_2 = E_2 / sum_E
-        p_3 = E_3 / sum_E
-        new_x = generate_cluster_with_position((1.0 / 3.0) * (pop_copy[0].get_positions()
-                                                                  + pop_copy[1].get_positions() + pop_copy[
-                                                                      2].get_positions())
-                                                   + (p_2 - p_1) * (pop_copy[0].get_positions() - pop_copy[
-                1].get_positions())
-                                                   + (p_3 - p_2) * (pop_copy[1].get_positions() - pop_copy[
-                2].get_positions())
-                                                   + (p_1 - p_3) * (pop_copy[2].get_positions() - pop_copy[
-                0].get_positions()),
-                                                   cluster_size)
-        new_x = optimise_local_each(new_x, calc, local_optimiser)
-        if new_x.get_potential_energy() <= pop[i].get_potential_energy():
-            pop[i] = new_x
-
-    return pop
-
-
-def OL(pop, Sn, cluster_size, calc, local_optimiser):
+def onlooker_bee(pop, Sn, cluster_size, calc, local_optimiser):
     for i in range(Sn):
 
         random_index2 = random.sample(range(0, Sn), 4)
@@ -152,7 +114,16 @@ def OL(pop, Sn, cluster_size, calc, local_optimiser):
     return pop
 
 
-def main() -> None:
+
+
+
+
+def scout_bee(pop, Sn, cluster_size, calc, local_optimiser):
+    return pop
+
+
+
+if __name__ == "__main__":
     # np.random.seed(241)
     np.seterr(divide='raise')
 
@@ -169,8 +140,8 @@ def main() -> None:
     for cluster in population:
         cluster.calc = calc
     for i in range(100):
-        population = EB(population, p.pop_size, p.cluster_size, calc, local_optimiser)
-        population = OL(population, p.pop_size, p.cluster_size, calc, local_optimiser)
+        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
+        population = onlooker_bee(population, p.pop_size, p.cluster_size, calc, local_optimiser)
         for cluster in population:
             cluster.calc = calc
         print(np.min([cluster.get_potential_energy() for cluster in population]))
@@ -179,7 +150,4 @@ def main() -> None:
         cluster.calc = calc
     print(np.min([cluster.get_potential_energy() for cluster in population]))
 
-    # energies= optimise_local(population, calc, local_optimiser)
 
-
-main()
