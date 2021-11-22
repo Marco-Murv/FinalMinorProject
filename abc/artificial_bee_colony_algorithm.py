@@ -14,6 +14,7 @@ from typing import List
 import argparse
 import sys
 import employee_bee
+import onlooker_bee
 import random
 import math
 
@@ -97,27 +98,6 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
 
 
-
-def onlooker_bee(pop, Sn, cluster_size, calc, local_optimiser):
-    for i in range(Sn):
-
-        random_index2 = random.sample(range(0, Sn), 4)
-        new_x = generate_cluster_with_position(pop[i].get_positions() +
-                                               (pop[random_index2[0]].get_positions() + pop[
-                                                   random_index2[1]].get_positions()
-                                                - pop[random_index2[2]].get_positions()
-                                                - pop[random_index2[3]].get_positions()), cluster_size)
-        new_x = optimise_local_each(new_x, calc, local_optimiser)
-        if new_x.get_potential_energy() <= pop[i].get_potential_energy():
-            pop[i] = new_x
-
-    return pop
-
-
-
-
-
-
 def scout_bee(pop, Sn, cluster_size, calc, local_optimiser):
     return pop
 
@@ -141,7 +121,7 @@ if __name__ == "__main__":
         cluster.calc = calc
     for i in range(100):
         population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
-        population = onlooker_bee(population, p.pop_size, p.cluster_size, calc, local_optimiser)
+        population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
         for cluster in population:
             cluster.calc = calc
         print(np.min([cluster.get_potential_energy() for cluster in population]))
