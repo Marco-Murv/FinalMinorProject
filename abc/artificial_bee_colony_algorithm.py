@@ -9,12 +9,11 @@ from ase.io import write
 import ase.db
 import sys
 from typing import List
-# from mating import mating
-# import mutators
 import argparse
 import sys
 import employee_bee
 import onlooker_bee
+import scout_bee
 import random
 import math
 
