@@ -2,3 +2,4 @@ cluster_size: 3
 radius: 1
 max_radius: 1.5
 stop_steps: 100
+database: ./basin_hopping.db

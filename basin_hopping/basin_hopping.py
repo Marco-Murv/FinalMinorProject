@@ -97,7 +97,7 @@ class BasinHopping:
         self.min_atoms = self.atoms.copy()
         self.minima = [[0, self.min_potential_energy, self.min_atoms.get_positions()]]
     
-    def run(self, max_steps: int=5000, stop_steps: Optional[None]=None, verbose: bool=False) -> None:
+    def run(self, max_steps: int=5000, stop_steps: Optional[int]=None, verbose: bool=False) -> None:
         """
         Run the basin hopping algorithm.
 
@@ -243,21 +243,21 @@ def main(args: argparse.Namespace):
         minima = [j for i in minima for j in i]
         # Sort minima
         minima = minima.sort(key=lambda x:x[1])
-        # Save in database
-        db = connect(args.database, type="db")
         # Remove custom constraint to prevent errors due to ase hardcoding constraint names
         min_atoms.set_constraint(None)
         # Calculate energy to include it in the database
         min_atoms.set_calculator(LennardJones())
         min_atoms.get_potential_energy()
         # Update or write
-        try:
-            row = db.get(natoms=args.cluster_size)
-            if min_potential_energy < row.energy:
-                print("Lower global minimum found")
-                db.update(row.id, min_atoms)
-        except:
-            db.write(min_atoms)
+        if args.database is not None:
+            db = connect(args.database, type="db")
+            try:
+                row = db.get(natoms=args.cluster_size)
+                if min_potential_energy < row.energy:
+                    print("Lower global minimum found")
+                    db.update(row.id, min_atoms)
+            except:
+                db.write(min_atoms)
         # Display global minimum
         view(min_atoms)
         print(f"Global minimum = {min_potential_energy}")
@@ -282,7 +282,7 @@ if __name__ == "__main__":
     parser.add_argument("--step-size-factor", type=float, default=0.9, help="The factor to multiply and divide the step size by")
     parser.add_argument("--step-size-interval", type=int, default=50, help="The interval for how often to update the step size")
     #
-    parser.add_argument("-db", "--database", default="./basin_hopping.db", help="Database file for storing global minima")
+    parser.add_argument("-db", "--database", default=None, help="Database file for storing global minima")
     parser.add_argument("-v", "--verbose", action="store_true", help="Print information about each step")
 
     # Parse args
