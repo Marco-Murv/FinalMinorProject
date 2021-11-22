@@ -175,7 +175,7 @@ def artificial_bee_colony_algorithm():
     for i in range(p.cycle):
         population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
         population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
-        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
+        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, calc)
         debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
 
     for cluster in population:
