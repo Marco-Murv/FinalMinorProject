@@ -97,9 +97,6 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
 
 
-def scout_bee(pop, Sn, cluster_size, calc, local_optimiser):
-    return pop
-
 
 
 if __name__ == "__main__":
