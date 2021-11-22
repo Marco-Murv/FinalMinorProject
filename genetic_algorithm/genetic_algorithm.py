@@ -339,13 +339,12 @@ def get_mutants(pop, cluster_radius, cluster_size, p_static=0.05, p_dynamic=0.05
     return mutants
 
 
-def natural_selection_step(pop, energies, pop_fitness, pop_size, dE_thr, fitness_func):
+def natural_selection_step(pop, energies, pop_size, dE_thr, fitness_func):
     """
     Applies a natural selection step to the given population.
 
     @param pop: population of clusters
     @param energies: energies corresponding to each cluster in population
-    @param pop_fitness: fitness values corresponding to each cluster in population
     @param pop_size: maximum population size
     @param dE_thr: minimum energy threshold for clusters with nearly equal energies
     @param fitness_func: function used for calculating fitness values
@@ -371,9 +370,8 @@ def natural_selection_step(pop, energies, pop_fitness, pop_size, dE_thr, fitness
     # Store newly formed population
     pop = new_pop.copy()
     energies = new_energies.copy()
-    pop_fitness = fitness(energies, fitness_func)
 
-    return pop, energies, pop_fitness
+    return pop, energies
 
 
 def store_local_minima(newborns, energies, local_min, energies_min, dE_thr):
@@ -462,9 +460,6 @@ def genetic_algorithm() -> None:
     pop = generate_population(c.pop_size, c.cluster_size, c.cluster_radius)
     energies = optimise_local(pop, c.calc, c.local_optimiser)
 
-    # Determine fitness
-    pop_fitness = fitness(energies, c.fitness_func)
-
     # Keep track of global minima. Initialised with random cluster
     best_min = [pop[0]]
     local_min = [pop[0]]
@@ -480,6 +475,8 @@ def genetic_algorithm() -> None:
     while gen_no_success < c.max_no_success and gen < c.max_gen:
         debug(f"Generation {gen:2d} - Population size = {len(pop)}")
 
+        # Get fitness values
+        pop_fitness = fitness(energies, func=c.fitness_func)
         # Mating - get new population
         children = mating(pop, pop_fitness, c.children_perc, c.mating_method)
         # Mutating - get new mutants
@@ -496,7 +493,7 @@ def genetic_algorithm() -> None:
         local_min, energies_min = store_local_minima(newborns, energies, local_min, energies_min, c.dE_thr)
 
         # Natural selection
-        pop, energies, pop_fitness = natural_selection_step(pop, energies, pop_fitness, c.pop_size, c.dE_thr, c.fitness_func)
+        pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr, c.fitness_func)
 
         # Store info about lowest, average, and highest energy of this gen for EPP
         lowest_energies.append(energies[0])
