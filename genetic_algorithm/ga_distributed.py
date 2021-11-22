@@ -17,24 +17,38 @@ from mating import mating
 import numpy as np
 from mpi4py import MPI
 
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-num_procs = comm.Get_size()
-
 
 def flatten_list(lst):
+    """
+    Convert 2d list to 1d list
+
+    @param lst: 2d list to be flattened
+    @return: float 1d list
+    """
     return [item for sublst in lst for item in sublst]
 
 
 def ga_distributed():
+    """
+    Main genetic algorithm (distributed)
+    """
     np.seterr(divide='raise')
+
+    # Initialising MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    num_procs = comm.Get_size()
 
     # File to get default configuration / run information
     config_file = "run_config.yaml"
 
+    # Parse possible terminal input and yaml file.
     c = get_configuration(config_file)
 
-    # Initialise variables (for parallel run)
+    # =========================================================================
+    # Initial population
+    # =========================================================================
+    # Initialise variables
     pop = None
     pop_fitness = None
 
@@ -51,7 +65,7 @@ def ga_distributed():
         # Create initial population
         pop = generate_population(c.pop_size, c.cluster_size, c.cluster_radius)
 
-        # TODO: Make this parallel already
+        # FIX: Make this parallel already
         energies = optimise_local(pop, c.calc, c.local_optimiser)
         pop_fitness = fitness(energies, c.fitness_func)
 
@@ -70,44 +84,46 @@ def ga_distributed():
     while gen_no_success < c.max_no_success and gen < c.max_gen:
         if rank == 0:
             debug(f"Generation {gen:2d} - Population size = {len(pop)}")
-        
+
         # Broadcast initial population
         pop = comm.bcast(pop, root=0)
-        pop_fitness = comm.bcast(pop_fitness, root=0)  # TODO: use Bcast instead (numpy)
+        # TODO: use Bcast instead (numpy)
+        pop_fitness = comm.bcast(pop_fitness, root=0)
 
         # Mating - get new population
-        children = mating(pop, pop_fitness, c.children_perc / num_procs, c.mating_method)
+        children = mating(pop, pop_fitness, c.children_perc, num_procs, c.mating_method)
 
         # Define sub-populaiton on every rank (only for mutating)
-        chunk = len(pop) // num_procs # TODO:
-        sub_pop = pop[rank*chunk:(rank+1) * chunk]
+        chunk = len(pop) // num_procs  # TODO:
+        sub_pop = pop[rank * chunk:(rank + 1) * chunk]
 
-        # Mutating - get new mutants 
+        # Mutating - get new mutants
         mutants = get_mutants(sub_pop, c.cluster_radius, c.cluster_size)
 
-        # FIX: TOO MANY MUTANTS NOW
         # Local minimisation and add to population
         newborns = children + mutants
 
         debug(f"\tRank {rank:2d} - Local optimisation of {len(newborns)} newb")
         new_energies = optimise_local(newborns, c.calc, c.local_optimiser)
-        
+
         newborns = comm.gather(newborns, root=0)
         new_energies = comm.gather(new_energies, root=0)
 
         if rank == 0:
             newborns = flatten_list(newborns)
             new_energies = flatten_list(new_energies)
-      
-            pop +=  newborns
+
+            pop += newborns
             energies.extend(new_energies)
 
             # Keep track of new local minima
-            local_min, energies_min = store_local_minima(newborns, energies, local_min, energies_min, c.dE_thr)
-            
+            local_min, energies_min = store_local_minima(
+                newborns, energies, local_min, energies_min, c.dE_thr)
+
             # Natural Selection
             debug(f"\tRank {rank:2d} - Natural Selection")
-            pop, energies, pop_fitness = natural_selection_step(pop, energies, pop_fitness, c.pop_size, c.dE_thr, c.fitness_func)
+            pop, energies, pop_fitness = natural_selection_step(
+                pop, energies, pop_fitness, c.pop_size, c.dE_thr, c.fitness_func)
 
             # Store current best
             if energies[0] < best_min[-1].get_potential_energy():
@@ -118,10 +134,10 @@ def ga_distributed():
                 gen_no_success += 1
 
             gen += 1
-        
+
         gen = comm.bcast(gen, root=0)
         gen_no_success = comm.bcast(gen_no_success, root=0)
-    
+
     if rank == 0:
         # Store / report
         debug(f"Found {len(local_min)} local minima in total.")
@@ -134,4 +150,5 @@ def ga_distributed():
 
 
 if __name__ == "__main__":
+
     ga_distributed()
