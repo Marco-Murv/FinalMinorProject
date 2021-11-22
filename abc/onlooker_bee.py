@@ -7,6 +7,15 @@ import numpy as np
 
 
 def onlooker_bee_func(pop, pop_size, cluster_size, calc, local_optimiser):
+    '''
+
+    :param pop: poputlaion
+    :param pop_size: size of the population
+    :param cluster_size: size of the cluster
+    :param calc: calculation method
+    :param local_optimiser: local optimization method
+    :return:
+    '''
     if True:
         pop = search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser)
     return pop
@@ -27,6 +36,8 @@ def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimis
                                                                        cluster_size), calc, local_optimiser)
     if new_x.get_potential_energy() <= pop[selected_index].get_potential_energy():
         pop[selected_index] = new_x
+    else:
+        return search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser)
     return pop
 
 
@@ -58,18 +69,3 @@ def get_index_best(pop) -> int:
         if pop[i].get_potential_energy() < pop[index_best].get_potential_energy():
             index_best = i
     return index_best
-
-
-#def onlooker_bee_func(pop, pop_size, cluster_size, calc, local_optimiser):
-#    minimal_pe = sys.maxsize  # lowest potential energy
-#
-#    for cluster in pop:
-#        pe = cluster.get_potential_energy()
-#        if pe < minimal_pe: minimal_pe = pe
-#
-#    new_pop = []
-#    for cluster in pop:
-#        if (cluster.get_potential_energy() / minimal_pe) >= 0.4:
-#            new_pop.append(cluster)
-#
-#    return new_pop
