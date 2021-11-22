@@ -122,6 +122,7 @@ if __name__ == "__main__":
     for i in range(100):
         population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
         population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
+        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
         for cluster in population:
             cluster.calc = calc
         print(np.min([cluster.get_potential_energy() for cluster in population]))
