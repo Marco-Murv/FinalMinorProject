@@ -19,11 +19,7 @@ def scout_bee_func(pop, Sn, cluster_size, cluster_radius, calc, local_optimiser)
     if len(pop) != len(new_pop):  # replace the old removed clusters with new clusters
         # if n clusters were removed, then n new clusters are added
         new_clusters = artificial_bee_colony_algorithm.generate_population(Sn, cluster_size, cluster_radius)[:len(pop)-len(new_pop)]
-        new_clusters = artificial_bee_colony_algorithm.optimise_local(new_clusters, calc, local_optimiser)
-
-        for cluster in new_clusters:
-            cluster.calc = calc
-
+        artificial_bee_colony_algorithm.optimise_local(new_clusters, calc, local_optimiser)
         new_pop += new_clusters
 
     return new_pop
