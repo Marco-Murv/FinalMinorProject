@@ -6,5 +6,5 @@ fitness_func: exponential
 mating_method: roulette
 max_gen: 50
 max_no_success: 5
-pop_size: 4
-run_id: 75
+pop_size: 20
+run_id: 83

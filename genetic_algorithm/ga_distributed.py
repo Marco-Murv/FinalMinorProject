@@ -151,5 +151,8 @@ def ga_distributed():
 
 
 if __name__ == "__main__":
-
+    start = MPI.Wtime()
     ga_distributed()
+    wt = MPI.Wtime() - start
+
+    print(f"ga_distributed took {wt} seconds to execute")
