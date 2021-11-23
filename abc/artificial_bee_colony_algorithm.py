@@ -9,6 +9,7 @@ from ase.optimize import LBFGS
 from ase.visualize import view
 from ase.io import write
 import ase.db
+import ase.db
 import os
 from typing import List
 import argparse
@@ -157,30 +158,47 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
 
 
+def store_results_database(pop, db, c, cycle):
+    """
+    Writes GA results to the database.
+
+    @param global_min: the global minimum cluster
+    @param local_min: list of all local minima found
+    @param db: the database to write to
+    @param c: the configuration information of the GA run
+    @return: exit code 0
+    """
+
+    for cluster in pop:
+        last_id = db.write(cluster, pop_size=c.pop_size,
+                           cluster_size=c.cluster_size, run_id=c.run_id,
+                           potential_energy=cluster.get_potential_energy(), cycle=cycle)
+    return 0
+
+
 def artificial_bee_colony_algorithm():
     # np.random.seed(241)
     np.seterr(divide='raise')
-
-
+    db_file = "artificial_bee_colony_algorithm_results.db"
+    config_file = 'run_config.yaml'
+    db_file = os.path.join(os.path.dirname(__file__), db_file)
+    db = ase.db.connect(db_file)
     # Parse possible input, otherwise use default parameters
-    p = get_configuration('run_config.yaml')
+    p = get_configuration(config_file)
     config_info(p)
     # Make local optimisation Optimiser and calculator
-    calc = p.calc
-    local_optimiser = p.local_optimiser
 
     # Generate initial population and optimise locally
     population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius)
-    optimise_local(population, calc, local_optimiser)
+    optimise_local(population, p.calc, p.local_optimiser)
     for i in range(p.cycle):
-        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
-        population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, calc, local_optimiser)
-        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, calc, local_optimiser)
+        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser)
+        population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser)
+        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size,
+                                              p.cluster_radius, p.calc, p.local_optimiser)
         debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
 
-    for cluster in population:
-        cluster.calc = calc
-    print(np.min([cluster.get_potential_energy() for cluster in population]))
+    store_results_database(population, db, p, p.cycle)
 
 
 if __name__ == '__main__':
