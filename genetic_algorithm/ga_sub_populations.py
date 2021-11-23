@@ -10,6 +10,7 @@ diversity.
 
 import os
 import ase
+import time
 import numpy as np
 
 from genetic_algorithm import config_info, debug, fitness, generate_population
@@ -19,10 +20,6 @@ from genetic_algorithm import store_local_minima, store_results_database
 from mating import mating
 from ga_distributed import flatten_list
 from mpi4py import MPI
-
-
-def cluster_exchange(pop, comm, rank, num_procs):
-    return
 
 
 def ga_sub_populations():
@@ -44,9 +41,9 @@ def ga_sub_populations():
     # Initial population and variables
     # =========================================================================
     # TODO: good sub-population size? Atm normal population size divided by number of processes.
-    sub_pop_size = np.ceil(c.pop_size / num_procs)
+    sub_pop_size = np.ceil(c.pop_size / num_procs).astype(int)
 
-    pop = generate_population(c.pop_size, c.cluster_size, c.cluster_radius)
+    pop = generate_population(sub_pop_size, c.cluster_size, c.cluster_radius)
     energies = optimise_local(pop, c.calc, c.local_optimiser)
 
     # Keep track of global minima. Initialised with random cluster
@@ -61,7 +58,38 @@ def ga_sub_populations():
     gen = 0
     gen_no_success = 0
 
+    # Used for swapping random clusters between sub-populations
+    rng = np.random.default_rng()
+
+    # TODO: using max_gen as in normal GA may lead to erros with message passing when sub-population is stopped
     while gen_no_success < c.max_no_success and gen < c.max_gen:
+
+        # Exchange clusters with neighbouring processors
+        # TODO: proper criteria to start exchanges between all processors? Now it's just set to every 10th gen.
+        if (gen % 10) == 0:
+            perc_pop_exchanged = 0.2
+            num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int) * 2  # TODO: how many to swap?
+            cluster_indices = rng.choice(sub_pop_size, size=num_exchanges, replace=False)
+
+            left_neighb = (rank - 1) % num_procs
+            left_msg = [pop[i] for i in cluster_indices[:(num_exchanges // 2)]]
+            right_neighb = (rank + 1) % num_procs
+            right_msg = [pop[i] for i in cluster_indices[(num_exchanges // 2):]]
+
+            comm.isend(left_msg, dest=left_neighb)
+            comm.isend(right_msg, dest=right_neighb)
+            req_left = comm.irecv(source=left_neighb)
+            req_right = comm.irecv(source=right_neighb)
+            left_clusters = req_left.wait()
+            debug(f"Generation {gen}: processor {rank} received from {left_neighb}!")
+            right_clusters = req_right.wait()
+            debug(f"Generation {gen}: processor {rank} received from {right_neighb}!")
+
+            debug(f"Generation {gen}: processor {rank} finished all exchanges!")
+
+            pop = [cluster for idx, cluster in enumerate(pop) if idx not in cluster_indices]
+            pop += left_clusters + right_clusters
+            energies = [cluster.get_potential_energy() for cluster in pop]
 
         # Get fitness values
         pop_fitness = fitness(energies, func=c.fitness_func)
@@ -79,13 +107,11 @@ def ga_sub_populations():
         local_min, energies_min = store_local_minima(newborns, energies, local_min, energies_min, c.dE_thr)
 
         # Natural selection
-        pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr, c.fitness_func)
-
-        # TODO: condition for cluster exchanges?
+        pop, energies = natural_selection_step(pop, energies, sub_pop_size, c.dE_thr, c.fitness_func)
 
         # Store current best
         if energies[0] < best_min[-1].get_potential_energy():
-            debug("New global minimum: ", energies[0])
+            debug(f"Process {rank}: new global minimum at {energies[0]}")
             best_min.append(pop[0])
             gen_no_success = 0  # This is success, so set to zero.
         else:
@@ -96,20 +122,22 @@ def ga_sub_populations():
     # =========================================================================
     # Combine all results and store them
     # =========================================================================
+    # Combine results
+    best_min = comm.gather(best_min, root=0)
+    local_min = comm.gather(local_min, root=0)
+
     if rank == 0:
-        # Combine results
-        best_min = comm.gather(best_min, root=0)
-        local_min = comm.gather(local_min, root=0)
+        debug("All results have been combined!")
         best_min = flatten_list(best_min)
         local_min = flatten_list(local_min)
 
         # TODO: remove duplicates and find the GM
 
         # Connect to database
-        db_file = "genetic_algorithm_results.db"
-        db_file = os.path.join(os.path.dirname(__file__), db_file)
-        db = ase.db.connect(db_file)
-        store_results_database(best_min[-1], local_min, db, c)
+        # db_file = "genetic_algorithm_results.db"
+        # db_file = os.path.join(os.path.dirname(__file__), db_file)
+        # db = ase.db.connect(db_file)
+        # store_results_database(best_min[-1], local_min, db, c)
 
     return 0
 
