@@ -1,13 +1,16 @@
 
 import argparse
 import math
+from re import X
+from ase.io.trajectory import Trajectory
 import numpy as np
-from typing import Any, List, Optional, Type
+from typing import Optional, Type
 import yaml
 
 from ase import Atoms
 from ase.calculators.calculator import Calculator
 from ase.calculators.lj import LennardJones
+from ase.constraints import Hookean
 from ase.optimize import LBFGS
 from ase.optimize.optimize import Optimizer
 from ase.units import kB
@@ -26,6 +29,9 @@ class DummyMPI:
     
     def gather(self, x):
         return [x]
+    
+    def bcast(self, x):
+        return x
 
 try:
     from mpi4py import MPI
@@ -45,8 +51,9 @@ class CubeConstraint:
         pass
 
     def todict(self):
-        return {'name': 'CubeConstraint',
-                'kwargs': {'radius': self.radius}}
+        # Workaround for ase hardcoding constraint names
+        return {'name': 'FixAtoms',
+                'kwargs': {'indices': [0]}}
 
 class BasinHopping:
     """
@@ -81,21 +88,24 @@ class BasinHopping:
                  step_size_factor: float=0.9,
                  step_size_interval: int=50,
                  optimizer: Type[Optimizer]=LBFGS,
+                 trajectory: str=None,
                  optimizer_logfile: Optional[str]=None) -> None:
         self.atoms = atoms
         self.optimizer = optimizer
-        self.optimizer_logfile = optimizer_logfile
         self.temperature = temperature
         self.step_size = step_size
         self.accept_rate = accept_rate
         self.step_size_factor = step_size_factor
         self.step_size_interval = step_size_interval
+        self.trajectory = None if trajectory is None else Trajectory(trajectory, 'w')
+        self.optimizer_logfile = optimizer_logfile
+        # Initialise
         self.nTotal = self.nAccept = 0
-        # Minima
         self.min_potential_energy = self.atoms.get_potential_energy()
         self.old_potential_energy = self.min_potential_energy
         self.min_atoms = self.atoms.copy()
-        self.minima = [[0, self.min_potential_energy, self.min_atoms.get_positions()]]
+        if self.trajectory is not None:
+            self.trajectory.write(self.atoms)
     
     def run(self, max_steps: int=5000, stop_steps: Optional[int]=None, verbose: bool=False) -> None:
         """
@@ -111,17 +121,23 @@ class BasinHopping:
         verbose: bool, optional
             Print information about each step.
         """
+        rank = COMM.Get_rank()
         stop_step_count = 0
-        if verbose: print("{:s} {:>5s} {:>16s} {:>8s}".format(" "*13, "Step", "Energy", "Accept"))
+        if verbose and rank == 0: print("{:s} {:>5s} {:>16s} {:>8s}".format(" "*13, "Step", "Energy", "Accept"))
         for i in range(max_steps):
             old_positions = self.atoms.get_positions()
             # Displace atoms
             self.displace_atoms()
             # Get the potential energy
             new_potential_energy = self.get_potential_energy()
+            # Gather results
+            atoms = COMM.gather(self.atoms)
+            min_atoms = None if atoms is None else atoms[np.argmin([atom.get_potential_energy() for atom in atoms])]
+            self.atoms = COMM.bcast(min_atoms)
+            # Update potential energy
+            new_potential_energy = self.atoms.get_potential_energy()
             # Check if new global minimum was found
             if new_potential_energy < self.min_potential_energy:
-                self.minima.append([self.nTotal+1, new_potential_energy, self.atoms.get_positions()])
                 self.min_atoms = self.atoms.copy()
                 self.min_potential_energy = new_potential_energy
                 stop_step_count = 0
@@ -134,7 +150,11 @@ class BasinHopping:
             self.nTotal += 1
             if self.nTotal % self.step_size_interval: self.adjust_step_size()
             # Log step
-            if verbose: print(f"BasinHopping: {i:5d} {new_potential_energy:15.6f}* {str(accept):>8s}")
+            if verbose and rank == 0: print(f"BasinHopping: {i:5d} {new_potential_energy:15.6f}* {str(accept):>8s}")
+            # Write to trajectory
+            if self.trajectory is not None and rank == 0:
+                for x in atoms:
+                    self.trajectory.write(x)
             # Set values for next step
             if accept:
                 self.old_potential_energy = new_potential_energy
@@ -142,11 +162,12 @@ class BasinHopping:
                 self.atoms.set_positions(old_positions)
             # Stop condition
             if stop_steps is not None and stop_step_count >= stop_steps: break
-        print(f"Stopped at iteration {i}.")
+        
+        if verbose and rank == 0: print(f"Stopped at iteration {i}.")
     
     def displace_atoms(self) -> None:
         dX = np.random.uniform(-self.step_size, self.step_size, (len(self.atoms), 3))
-        self.atoms.translate(dX)
+        self.atoms.set_positions(self.atoms.get_positions() + dX)
     
     def get_potential_energy(self) -> float:
         # Ignore divide by zero errors
@@ -176,18 +197,6 @@ class BasinHopping:
         """Get minimum potential energy atom configuration"""
         return self.min_atoms
     
-    def get_minima(self) -> List[List[Any]]:
-        """
-        List of all global minimum energy configurations found with the following columns:
-        step: int
-            The step the new global minimum was found.
-        potential energy: float
-            The potential energy of the new global minimum.
-        atom configuration: List[List[float]]
-            The atom configuration of the new global minimum.
-        """
-        return self.minima
-    
     @staticmethod
     def generate_initial_configuration(cluster_size: int, radius: float=1.0, max_radius: Optional[float]=None, calculator: Type[Calculator]=LennardJones) -> Atoms:
         """
@@ -214,7 +223,7 @@ class BasinHopping:
         # Calculate uniformly distributed points inside the sphere
         positions = XYZ*U[:,np.newaxis]
         # Initialize atoms object
-        # constraints = [Hookean(i, ((j>>2)&1, (j>>1)&1, (j&1)), k, k) for k in [-max_radius, max_radius] for j in [1, 2, 4] for i in range(cluster_size)]
+        # constraint = [Hookean(i, (0,0,0), 15, max_radius) for i in range(cluster_size)]
         constraint = None if max_radius is None else CubeConstraint(max_radius)
         return Atoms(positions=positions, constraint=constraint, calculator=calculator())
 
@@ -222,30 +231,22 @@ def main(args: argparse.Namespace):
     size = COMM.Get_size()
     rank = COMM.Get_rank()
 
+    if args.cluster_size is None:
+        print("Cluster size not given. Please set the cluster size.")
+        return
+
     if size > 1: print(f"Starting basin hopping in rank {rank}")
     atoms = BasinHopping.generate_initial_configuration(args.cluster_size, args.radius, args.max_radius)
-    basin_hopping = BasinHopping(atoms, args.temperature, args.step_size, args.accept_rate, args.step_size_factor, args.step_size_interval)
+    atoms = COMM.bcast(atoms)
+    basin_hopping = BasinHopping(atoms, args.temperature, args.step_size, args.accept_rate, args.step_size_factor, args.step_size_interval, trajectory=args.trajectory)
     basin_hopping.run(args.max_steps, args.stop_steps, args.verbose)
     if size > 1: print(f"Basin hopping completed in rank {rank}")
 
-    potential_energy = basin_hopping.get_min_potential_energy()
-    atoms = basin_hopping.get_min_atoms()
-    minima = basin_hopping.get_minima()
-
-    potential_energy = COMM.gather(potential_energy)
-    atoms = COMM.gather(atoms)
-    minima = COMM.gather(minima)
-
     if rank == 0:
-        min_potential_energy = np.min(potential_energy)
-        min_atoms = atoms[np.argmin(potential_energy)]
-        # Flatten minima
-        minima = [j for i in minima for j in i]
-        # Sort minima
-        minima = minima.sort(key=lambda x:x[1])
-        # Remove custom constraint to prevent errors due to ase hardcoding constraint names
-        min_atoms.set_constraint(None)
+        min_potential_energy = basin_hopping.get_min_potential_energy()
+        min_atoms = basin_hopping.get_min_atoms()
         # Calculate energy to include it in the database
+        min_atoms.set_constraint()
         min_atoms.set_calculator(LennardJones())
         min_atoms.get_potential_energy()
         # Update or write
@@ -266,9 +267,8 @@ def main(args: argparse.Namespace):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.")
     # Require either a config file or the cluster size
-    config_type = parser.add_mutually_exclusive_group(required=True)
-    config_type.add_argument("-f", "--config-file", type=str, help="The location of the config file")
-    config_type.add_argument("-n", "--cluster-size", type=int, help="The size of the cluster")
+    parser.add_argument("-f", "--config", type=str, default=None, help="The location of the config file")
+    parser.add_argument("-n", "--cluster-size", type=int, default=None, help="The size of the cluster")
     # 
     parser.add_argument("-r", "--radius", type=float, default=1, help="Radius of the sphere the initial atoms configuration is uniformly distributed in")
     parser.add_argument("-c", "--max-radius", type=float, default=None, help="The maximum radius of the cube to constrain the atoms in. If not set, no constraint is placed on the atoms")
@@ -282,14 +282,15 @@ if __name__ == "__main__":
     parser.add_argument("--step-size-factor", type=float, default=0.9, help="The factor to multiply and divide the step size by")
     parser.add_argument("--step-size-interval", type=int, default=50, help="The interval for how often to update the step size")
     #
+    parser.add_argument("-tr", "--trajectory", default=None, help="Trajectory file for storing local minima")
     parser.add_argument("-db", "--database", default=None, help="Database file for storing global minima")
     parser.add_argument("-v", "--verbose", action="store_true", help="Print information about each step")
 
     # Parse args
     args = parser.parse_args()
     # Load config file if some file was provided
-    if args.config_file is not None:
-        config = yaml.load(open(args.config_file), Loader=yaml.FullLoader)
+    if args.config is not None:
+        config = yaml.load(open(args.config), Loader=yaml.FullLoader)
         vars(args).update(config)
 
     main(args)
