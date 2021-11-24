@@ -28,6 +28,7 @@ import ase.db
 import mutators
 import argparse
 import ase.db
+import process_data
 
 from ase import Atoms
 from ase.calculators.lj import LennardJones
@@ -490,7 +491,8 @@ def genetic_algorithm() -> None:
         pop += newborns
 
         # Keep track of new local minima
-        local_min, energies_min = store_local_minima(newborns, energies, local_min, energies_min, c.dE_thr)
+        local_min += newborns
+        # local_min, energies_min = store_local_minima(newborns, energies, local_min, energies_min, c.dE_thr)
 
         # Natural selection
         pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr, c.fitness_func)
@@ -511,9 +513,9 @@ def genetic_algorithm() -> None:
         gen += 1
 
     # Store / report
-    debug(f"Found {len(local_min)} local minima in total.")
-    debug("The evolution of the global minimum:")
-    debug([cluster.get_potential_energy() for cluster in best_min])
+    print(f"Local minima before post processing: {len(local_min)} \n")
+    local_min = process_data.select_local_minima(local_min)
+    process_data.print_stats(local_min)
 
     store_results_database(best_min[-1], local_min, db, c)
 
