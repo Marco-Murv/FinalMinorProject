@@ -5,6 +5,6 @@ delta_energy_thr: 0.1
 fitness_func: exponential
 mating_method: roulette
 max_gen: 50
-max_no_success: 20
-pop_size: 4
-run_id: 112
+max_no_success: 5
+pop_size: 20
+run_id: 91
