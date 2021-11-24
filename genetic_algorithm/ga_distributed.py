@@ -32,6 +32,7 @@ def ga_distributed():
     """
     Main genetic algorithm (distributed)
     """
+    np.random.seed(241)
     np.seterr(divide='raise')
 
     # Initialising MPI
@@ -50,7 +51,7 @@ def ga_distributed():
     # =========================================================================
     # Initialise variables
     pop = None
-    pop_fitness = None
+    energies = None
 
     if rank == 0:
         config_info(c)
@@ -67,8 +68,6 @@ def ga_distributed():
 
         # FIX: Make this parallel already
         energies = optimise_local(pop, c.calc, c.local_optimiser)
-        pop_fitness = fitness(energies, c.fitness_func)
-
         # Keep track of global minima. Initialised with random cluster
         best_min = [pop[0]]
         local_min = [pop[0]]
@@ -88,10 +87,12 @@ def ga_distributed():
         # Broadcast initial population
         pop = comm.bcast(pop, root=0)
         # TODO: use Bcast instead (numpy)
-        pop_fitness = comm.bcast(pop_fitness, root=0)
+        energies = comm.bcast(energies, root=0)
 
+
+        pop_fitness = fitness(energies, c.fitness_func)
         # Mating - get new population
-        children = mating(pop, pop_fitness, c.children_perc, num_procs, c.mating_method)
+        children = mating(pop, pop_fitness, c.children_perc/num_procs, c.mating_method)
 
         # Define sub-populaiton on every rank (only for mutating)
         chunk = len(pop) // num_procs  # TODO:
@@ -122,8 +123,8 @@ def ga_distributed():
 
             # Natural Selection
             debug(f"\tRank {rank:2d} - Natural Selection")
-            pop, energies, pop_fitness = natural_selection_step(
-                pop, energies, pop_fitness, c.pop_size, c.dE_thr, c.fitness_func)
+            pop, energies= natural_selection_step(
+                pop, energies, c.pop_size, c.dE_thr, c.fitness_func)
 
             # Store current best
             if energies[0] < best_min[-1].get_potential_energy():
@@ -150,5 +151,8 @@ def ga_distributed():
 
 
 if __name__ == "__main__":
-
+    start = MPI.Wtime()
     ga_distributed()
+    wt = MPI.Wtime() - start
+
+    print(f"ga_distributed took {wt} seconds to execute")
