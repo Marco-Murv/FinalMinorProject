@@ -1,25 +1,76 @@
-#!/bin/python3
+#!/usr/bin/python3
 
+import ase.db
+from ase.visualize import view
 import sys
-import artificial_bee_colony_algorithm
+import os
 
 
-def scout_bee_func(pop, Sn, cluster_size, cluster_radius, calc, local_optimiser):
-    minimal_pe = sys.maxsize  # lowest potential energy
+def show_db(db):
+    print("\nShowing the contents of the database:")
+    print("-----------------------------------------------------------------------")
+    print("| ID | Cluster Size | Pop. Size | Energy |")
+    print("-----------------------------------------------------------------------")
+    for i in range(len(db)):
+        row = db[i+1]
+        print(f"|{row.id:3d} |{row.cluster_size:13d} |{row.pop_size:10d} |"
+              f"{row.potential_energy:8.3f}")
+    print("----------------------------------------------------------------------")
 
-    for cluster in pop:
-        pe = cluster.get_potential_energy()
-        if pe < minimal_pe: minimal_pe = pe
 
-    new_pop = []
-    for cluster in pop:
-        if (cluster.get_potential_energy() / minimal_pe) >= 0.8:
-            new_pop.append(cluster)
+def show_help():
+    print("\nProvide one or more valid ID from the database to view.\n"
+          "Provide a negative number to show the database\n"
+          "Write 'db' to show database\n"
+          "Write 'h' to show this help\n"
+          "Write 'q' or 'Q' to quit")
 
-    if len(pop) != len(new_pop):  # replace the old removed clusters with new clusters
-        # if n clusters were removed, then n new clusters are added
-        new_clusters = artificial_bee_colony_algorithm.generate_population(Sn, cluster_size, cluster_radius)[:len(pop)-len(new_pop)]
-        artificial_bee_colony_algorithm.optimise_local(new_clusters, calc, local_optimiser)
-        new_pop += new_clusters
 
-    return new_pop
+db_file_relative = "artificial_bee_colony_algorithm_results.db"
+
+dirname = os.path.dirname(__file__)
+db_file = os.path.join(dirname, db_file_relative)
+
+
+while not os.path.exists(db_file):
+    db_file = input(f"{db_file} is not an existing database. \n\n\tNew name: ")
+
+
+db = ase.db.connect(db_file)
+
+view_ids = ['0']
+
+if len(sys.argv) > 1:
+    view_ids = sys.argv[1:]
+else:
+    show_help()
+
+
+while True:
+
+    while any([int(view_id) <= 0 or int(view_id) > len(db) for view_id in view_ids]):
+
+
+        # view_id = list(input(f"\n\tView ID: "))
+        view_ids = list(input("\n\tView ID(s) : ").strip().split())
+
+        try:
+            view_ids = [int(view_id) for view_id in view_ids]
+
+        except ValueError:
+            if 'db' in view_ids:
+                show_db(db)
+            if 'q' in view_ids or 'Q' in view_ids:
+                sys.exit("\n\nExiting...\n")
+
+            else:
+                print("ERROR: Invalid option.")
+                show_help()
+                view_ids = ['0']
+
+    for view_id in view_ids:
+        print(f"Viewing the cluster with ID {view_id}.")
+        view(db[int(view_id)].toatoms())
+
+    print()
+    view_ids = [str(0)]
