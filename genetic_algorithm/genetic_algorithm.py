@@ -19,6 +19,13 @@ Example run_config.yaml:
     run_id: 1
 ```
 """
+import os
+import sys
+import inspect
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir) 
 
 import numpy as np
 import yaml
@@ -28,6 +35,7 @@ import ase.db
 import mutators
 import argparse
 import ase.db
+
 import process_data
 
 from ase import Atoms
