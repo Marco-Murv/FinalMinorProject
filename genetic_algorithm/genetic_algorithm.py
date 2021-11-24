@@ -38,6 +38,7 @@ from typing import List
 from mating import mating
 from datetime import datetime as dt
 from dataclasses import dataclass
+import time
 
 
 def debug(*args, **kwargs) -> None:
@@ -54,6 +55,7 @@ def config_info(config):
     """
     timestamp = dt.now().strftime("%Y-%m-%d %H:%M:%S")
     n = 63
+    print()
     print(" ---------------------------------------------------------------- ")
     print(f"| {f'Parallel Global Geometry Optimisation':{n}s}|")
     print(f"| {f'Genetic Algorithm':{n}s}|")
@@ -447,7 +449,8 @@ def genetic_algorithm() -> None:
     config_info(c)
 
     # Lists for EPP plots
-    show_EPP = True
+    # show_EPP = True
+    show_EPP = False
     lowest_energies = []
     highest_energies = []
     average_energies = []
@@ -525,4 +528,9 @@ def genetic_algorithm() -> None:
 
 
 if __name__ == '__main__':
+    start = time.time()
     genetic_algorithm()
+    wt = time.time() - start
+
+    print(f"\nGenetic-algorithm took {wt} seconds to execute")
+

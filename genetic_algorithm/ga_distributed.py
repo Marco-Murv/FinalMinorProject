@@ -79,8 +79,9 @@ def ga_distributed():
     # Keep track of iterations
     gen = 0
     gen_no_success = 0
+    done = False
 
-    while gen_no_success < c.max_no_success and gen < c.max_gen:
+    while not done:
         if rank == 0:
             debug(f"Generation {gen:2d} - Population size = {len(pop)}")
 
@@ -117,12 +118,12 @@ def ga_distributed():
             pop += newborns
             energies.extend(new_energies)
 
-            # Keep track of new local minima
-            local_min, energies_min = store_local_minima(
-                newborns, energies, local_min, energies_min, c.dE_thr)
+            # # Keep track of new local minima
+            # local_min, energies_min = store_local_minima(
+            #     newborns, energies, local_min, energies_min, c.dE_thr)
 
             # Natural Selection
-            debug(f"\tRank {rank:2d} - Natural Selection")
+            # debug(f"\tRank {rank:2d} - Natural Selection")
             pop, energies= natural_selection_step(
                 pop, energies, c.pop_size, c.dE_thr, c.fitness_func)
 
@@ -136,8 +137,14 @@ def ga_distributed():
 
             gen += 1
 
+            # Check if done
+            done = gen_no_success > c.max_no_success or gen > c.max_gen
+
+
+
         gen = comm.bcast(gen, root=0)
         gen_no_success = comm.bcast(gen_no_success, root=0)
+        done = comm.bcast(done, root=0)
 
     if rank == 0:
         # Store / report
@@ -155,4 +162,4 @@ if __name__ == "__main__":
     ga_distributed()
     wt = MPI.Wtime() - start
 
-    print(f"ga_distributed took {wt} seconds to execute")
+    print(f"\nga_distributed took {wt} seconds to execute")

@@ -1,0 +1,26 @@
+#!/bin/bash
+
+#PBS -N PGGO_GA
+#PBS -l nodes=1:ppn=4,walltime=2:00:00
+#PBS -q awep-small
+#PBS -o logCLUSTER
+#PBS -M s.b.e.vanhulle@student.tudelft.nl
+#PBS -m abe
+
+module load mpi/openmpi-1.8.8-gnu
+
+cd /home/svanhulle/PGGO/
+
+echo "Activating python environment"
+source envPGGO/bin/activate
+
+echo "Starting Run"
+
+echo "Running genetic_algorithm.py"
+python3 -m cProfile -s cumtime genetic_algorithm/genetic_algorithm.py > logGA
+
+echo "Running ga_distributed.py"
+mpirun -np 4  python3 -m cProfile -s cumtime genetic_algorithm/ga_distributed.py > logDistr
+
+
+
