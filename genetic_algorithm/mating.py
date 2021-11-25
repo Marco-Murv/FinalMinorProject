@@ -37,8 +37,8 @@ def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
     z_ctr_p2 = np.median(coords_p2[:, 2])
 
     # Take half of one parent and half of the other. for odd N atoms, p1 favored
-    coords = np.concatenate((coords_p1[coords_p1[:, 2] >= z_ctr_p1],
-                             coords_p2[coords_p2[:, 2] < z_ctr_p2]))
+    coords = np.concatenate((coords_p1[coords_p1[:, 2] >= z_ctr_p1] - z_ctr_p1,
+                             coords_p2[coords_p2[:, 2] < z_ctr_p2] - z_ctr_p2))
 
     for i in range(len(coords)):
         for j in range(len(coords[:i])):
