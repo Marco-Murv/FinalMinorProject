@@ -5,6 +5,14 @@ Distributed parallelisation of the Genetic Algorithm
 """
 
 import os
+import sys
+import inspect
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir) 
+
+import process_data
 
 import ase
 import genetic_algorithm as ga
@@ -147,7 +155,8 @@ def ga_distributed():
         done = comm.bcast(done, root=0)
 
     if rank == 0:
-        # Store / report
+        # Store / 
+        process_data.process_data(local_min)
         debug(f"Found {len(local_min)} local minima in total.")
         debug("The evolution of the global minimum:")
         debug([cluster.get_potential_energy() for cluster in best_min])

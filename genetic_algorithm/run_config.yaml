@@ -1,10 +1,10 @@
 children_perc: 0.8
 cluster_radius: 2.0
-cluster_size: 10
+cluster_size: 3
 delta_energy_thr: 0.1
 fitness_func: exponential
 mating_method: roulette
 max_gen: 50
 max_no_success: 5
-pop_size: 20
-run_id: 91
+pop_size: 5
+run_id: 97
