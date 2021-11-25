@@ -9,8 +9,9 @@ diversity.
 """
 
 import os
+import sys
+import inspect
 import ase
-import time
 import numpy as np
 
 from genetic_algorithm import config_info, debug, fitness, generate_population
@@ -20,6 +21,11 @@ from genetic_algorithm import store_local_minima, store_results_database
 from mating import mating
 from ga_distributed import flatten_list
 from mpi4py import MPI
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
+import process_data
 
 
 def one_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_right, perc_pop_exchanged=0.2):
@@ -218,13 +224,16 @@ def ga_sub_populations():
         best_min = flatten_list(best_min)
         local_min = flatten_list(local_min)
 
-        # TODO: remove duplicates and find the GM
+        # Filter minima
+        print(f"\n Local minima before post processing: {len(local_min)} \n")
+        local_min = process_data.select_local_minima(local_min)
+        process_data.print_stats(local_min)
 
         # Connect to database
-        # db_file = "genetic_algorithm_results.db"
-        # db_file = os.path.join(os.path.dirname(__file__), db_file)
-        # db = ase.db.connect(db_file)
-        # store_results_database(best_min[-1], local_min, db, c)
+        db_file = "genetic_algorithm_results.db"
+        db_file = os.path.join(os.path.dirname(__file__), db_file)
+        db = ase.db.connect(db_file)
+        store_results_database(best_min[-1], local_min, db, c)
 
     return 0
 
