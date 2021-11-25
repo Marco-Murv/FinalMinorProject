@@ -83,13 +83,13 @@ def filter_trajectory(input: str, significant_figures: int, output: str=None):
     trajectory.close()
 
 def main(**kwargs):
-    filter_trajectory(kwargs.get('input'), kwargs.get('output', None), kwargs.get('significant_figures', 2))
+    filter_trajectory(kwargs.get('input'), kwargs.get('significant_figures', 2), kwargs.get('output', None))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", type=str, required=True, help="Input file")
-    parser.add_argument("-o", "--output", type=str, default=None, help="Output file (default = input file)")
     parser.add_argument("-s", "--significant-figures", type=int, default=2, help="Significant figures to round the potential energy to to check for uniqueness")
+    parser.add_argument("-o", "--output", type=str, default=None, help="Output file (default = input file)")
 
     args = parser.parse_args()
 
