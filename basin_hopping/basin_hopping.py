@@ -1,8 +1,6 @@
 
 import argparse
 import math
-from re import X
-from ase.io.trajectory import Trajectory
 import numpy as np
 from typing import Optional, Type
 import yaml
@@ -11,10 +9,11 @@ from ase import Atoms
 from ase.calculators.calculator import Calculator
 from ase.calculators.lj import LennardJones
 from ase.constraints import Hookean
+from ase.db import connect
+from ase.io.trajectory import Trajectory
 from ase.optimize import LBFGS
 from ase.optimize.optimize import Optimizer
 from ase.units import kB
-from ase.db import connect
 from ase.visualize import view
 
 class DummyMPI:
@@ -107,14 +106,14 @@ class BasinHopping:
         if self.trajectory is not None:
             self.trajectory.write(self.atoms)
     
-    def run(self, max_steps: int=5000, stop_steps: Optional[int]=None, verbose: bool=False) -> None:
+    def run(self, max_steps: int=500, stop_steps: Optional[int]=None, verbose: bool=False) -> None:
         """
         Run the basin hopping algorithm.
 
         Parameters
         ----------
         max_steps: int, optional
-            The maximum number of steps the algorithm will take. (default = 5000)
+            The maximum number of steps the algorithm will take. (default = 500)
         stop_steps: int, None, optional
             The number of steps, without there being a new minimum, the algorithm will take before stopping.
             If None (default), the algorithm will run for the maximum number of steps.
@@ -214,6 +213,11 @@ class BasinHopping:
             If None, no constraint is placed on the atoms. (default = None)
         calculator: type(Calculator), optional
             The calculator used to calculate the potential energy surface. (default = LennardJones)
+        
+        Returns
+        -------
+        atoms: Atoms
+            the generated initial configuration
         """
         # Generate normally distributed points on the surface of the sphere
         XYZ = np.random.normal(size=(cluster_size, 3))
@@ -227,19 +231,20 @@ class BasinHopping:
         constraint = None if max_radius is None else CubeConstraint(max_radius)
         return Atoms(positions=positions, constraint=constraint, calculator=calculator())
 
-def main(args: argparse.Namespace):
+def main(**kwargs):
     size = COMM.Get_size()
     rank = COMM.Get_rank()
 
-    if args.cluster_size is None:
+    if kwargs.get('cluster_size') is None:
         print("Cluster size not given. Please set the cluster size.")
         return
 
     if size > 1: print(f"Starting basin hopping in rank {rank}")
-    atoms = BasinHopping.generate_initial_configuration(args.cluster_size, args.radius, args.max_radius)
+    atoms = BasinHopping.generate_initial_configuration(kwargs.get('cluster_size'), kwargs.get('radius', 1), kwargs.get('max_radius', None))
     atoms = COMM.bcast(atoms)
-    basin_hopping = BasinHopping(atoms, args.temperature, args.step_size, args.accept_rate, args.step_size_factor, args.step_size_interval, trajectory=args.trajectory)
-    basin_hopping.run(args.max_steps, args.stop_steps, args.verbose)
+    basin_hopping = BasinHopping(atoms, kwargs.get('temperature', 100*kB), kwargs.get('step_size', 0.5), kwargs.get('accept_rate', 0.5),
+                                 kwargs.get('step_size_factor', 0.9), kwargs.get('step_size_interval', 50), trajectory=kwargs.get('trajectory', None))
+    basin_hopping.run(kwargs.get('max_steps', 500), kwargs.get('stop_steps', None), kwargs.get('verbose', False))
     if size > 1: print(f"Basin hopping completed in rank {rank}")
 
     if rank == 0:
@@ -250,10 +255,10 @@ def main(args: argparse.Namespace):
         min_atoms.set_calculator(LennardJones())
         min_atoms.get_potential_energy()
         # Update or write
-        if args.database is not None:
-            db = connect(args.database, type="db")
+        if kwargs.get('database') is not None:
+            db = connect(kwargs.get('database'), type="db")
             try:
-                row = db.get(natoms=args.cluster_size)
+                row = db.get(natoms=kwargs.get('cluster_size'))
                 if min_potential_energy < row.energy:
                     print("Lower global minimum found")
                     db.update(row.id, min_atoms)
@@ -273,7 +278,7 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--radius", type=float, default=1, help="Radius of the sphere the initial atoms configuration is uniformly distributed in")
     parser.add_argument("-c", "--max-radius", type=float, default=None, help="The maximum radius of the cube to constrain the atoms in. If not set, no constraint is placed on the atoms")
     #
-    parser.add_argument("-m", "--max-steps", type=int, default=5000, help="The maximum number of steps the algorithm will take")
+    parser.add_argument("-m", "--max-steps", type=int, default=500, help="The maximum number of steps the algorithm will take")
     parser.add_argument("-s", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
     #
     parser.add_argument("--temperature", type=float, default=100*kB, help="The temperature parameter for the Metropolis acceptance criterion")
@@ -293,4 +298,4 @@ if __name__ == "__main__":
         config = yaml.load(open(args.config), Loader=yaml.FullLoader)
         vars(args).update(config)
 
-    main(args)
+    main(**vars(args))
