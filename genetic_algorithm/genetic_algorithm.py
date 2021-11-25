@@ -445,6 +445,8 @@ def genetic_algorithm() -> None:
     """
     # np.random.seed(241)
     np.seterr(divide='raise')
+
+    # Either store current np.random state or retreive state from previous run
     store_or_reuse_state(reuse=True)
 
     # Provide file name
