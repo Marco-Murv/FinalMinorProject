@@ -22,11 +22,6 @@ Example run_config.yaml:
 import os
 import sys
 import inspect
-
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir) 
-
 import numpy as np
 import yaml
 import os
@@ -35,8 +30,6 @@ import ase.db
 import mutators
 import argparse
 import ase.db
-
-import process_data
 
 from ase import Atoms
 from ase.calculators.lj import LennardJones
@@ -47,6 +40,11 @@ from typing import List
 from mating import mating
 from datetime import datetime as dt
 from dataclasses import dataclass
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
+import process_data
 
 
 def debug(*args, **kwargs) -> None:
@@ -119,9 +117,9 @@ def get_configuration(config_file):
                         help='Mating Method')
     parser.add_argument('--children_perc', type=float, metavar='',
                         help='Fraction of opulation that will have a child')
-    parser.add_argument('--cluster_radius', default=2.0, type=float, metavar='',
+    parser.add_argument('--cluster_radius', type=float, metavar='',
                         help='Dimension of initial random clusters')
-    parser.add_argument('--max_no_success', default=10, type=int, metavar='',
+    parser.add_argument('--max_no_success', type=int, metavar='',
                         help='Consecutive generations without new minimum')
     parser.add_argument('--max_gen', type=int, metavar='',
                         help='Maximum number of generations')
@@ -151,9 +149,6 @@ def get_configuration(config_file):
         yaml.dump(yaml_conf, f)
 
     return c
-
-    calc = LennardJones(sigma=1.0, epsilon=1.0)
-    local_optimiser = LBFGS
 
 
 def generate_cluster(cluster_size, radius) -> Atoms:
@@ -201,7 +196,7 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
         cluster.calc = calc
         try:
             optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
-        except:  # delete cluster from population if invalid energy value
+        except FloatingPointError:  # deletes cluster from population if division by zero error is encountered.
             population.remove(cluster)
             debug("DIVIDE BY ZERO REMOVED FROM POPULATION!")
 
@@ -415,13 +410,12 @@ def store_results_database(global_min, local_min, db, c):
     @param c: the configuration information of the GA run
     @return: exit code 0
     """
+    db.write(global_min, global_min=True, pop_size=c.pop_size,
+             cluster_size=c.cluster_size, max_gens=c.max_gen,
+             max_no_success=c.max_no_success, run_id=c.run_id)
 
     for cluster in local_min:
-        is_global_min = False
-        if cluster == global_min:
-            is_global_min = True
-
-        last_id = db.write(cluster, global_min=is_global_min, pop_size=c.pop_size,
+        db.write(cluster, global_min=False, pop_size=c.pop_size,
                            cluster_size=c.cluster_size, max_gens=c.max_gen,
                            max_no_success=c.max_no_success, run_id=c.run_id)
 
@@ -432,7 +426,7 @@ def genetic_algorithm() -> None:
     """
     The main genetic algorithm
     """
-    np.random.seed(241)
+    # np.random.seed(241)
     np.seterr(divide='raise')
 
     # Provide file name
@@ -525,7 +519,7 @@ def genetic_algorithm() -> None:
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
 
-    store_results_database(best_min[-1], local_min, db, c)
+    store_results_database(local_min[0], local_min[1:], db, c)
 
     # Show EPP plot if desired
     if show_EPP:
