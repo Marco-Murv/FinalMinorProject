@@ -36,6 +36,8 @@ def ga_sub_populations():
 
     # Parse possible terminal input and yaml file.
     c = get_configuration(config_file)
+    if rank == 0:
+        config_info(c)
 
     # =========================================================================
     # Initial population and variables
@@ -61,34 +63,33 @@ def ga_sub_populations():
     # Used for swapping random clusters between sub-populations
     rng = np.random.default_rng()
 
-    # TODO: using max_gen as in normal GA may lead to erros with message passing when sub-population is stopped
+    # TODO: using max_gen as in normal GA may lead to errors with message passing when sub-population is stopped
     while gen_no_success < c.max_no_success and gen < c.max_gen:
 
         # Exchange clusters with neighbouring processors
         # TODO: proper criteria to start exchanges between all processors? Now it's just set to every 10th gen.
         if (gen % 10) == 0:
             perc_pop_exchanged = 0.2
-            num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int) * 2  # TODO: how many to swap?
+            num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int)  # TODO: how many to swap?
             cluster_indices = rng.choice(sub_pop_size, size=num_exchanges, replace=False)
 
             left_neighb = (rank - 1) % num_procs
-            left_msg = [pop[i] for i in cluster_indices[:(num_exchanges // 2)]]
             right_neighb = (rank + 1) % num_procs
-            right_msg = [pop[i] for i in cluster_indices[(num_exchanges // 2):]]
+            right_msg = [pop[i] for i in cluster_indices]
 
-            comm.isend(left_msg, dest=left_neighb)
-            comm.isend(right_msg, dest=right_neighb)
+            send_req = comm.isend(right_msg, dest=right_neighb)
+            debug(f"Generation {gen}: processor {rank} sent message to {right_neighb}!")
             req_left = comm.irecv(source=left_neighb)
-            req_right = comm.irecv(source=right_neighb)
+            debug(f"Generation {gen}: processor {rank} waiting for {left_neighb}!")
             left_clusters = req_left.wait()
             debug(f"Generation {gen}: processor {rank} received from {left_neighb}!")
-            right_clusters = req_right.wait()
-            debug(f"Generation {gen}: processor {rank} received from {right_neighb}!")
+            send_req.wait()
+            debug(f"Generation {gen}: processor {rank} confirms message received by {right_neighb}!")
 
             debug(f"Generation {gen}: processor {rank} finished all exchanges!")
 
             pop = [cluster for idx, cluster in enumerate(pop) if idx not in cluster_indices]
-            pop += left_clusters + right_clusters
+            pop += left_clusters
             energies = [cluster.get_potential_energy() for cluster in pop]
 
         # Get fitness values
@@ -144,3 +145,27 @@ def ga_sub_populations():
 
 if __name__ == "__main__":
     ga_sub_populations()
+
+# perc_pop_exchanged = 0.2
+# num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int) * 2  # TODO: how many to swap?
+# cluster_indices = rng.choice(sub_pop_size, size=num_exchanges, replace=False)
+#
+# left_neighb = (rank - 1) % num_procs
+# left_msg = [pop[i] for i in cluster_indices[:(num_exchanges // 2)]]
+# right_neighb = (rank + 1) % num_procs
+# right_msg = [pop[i] for i in cluster_indices[(num_exchanges // 2):]]
+#
+# comm.isend(left_msg, dest=left_neighb)
+# comm.isend(right_msg, dest=right_neighb)
+# req_left = comm.irecv(source=left_neighb)
+# req_right = comm.irecv(source=right_neighb)
+# left_clusters = req_left.wait()
+# debug(f"Generation {gen}: processor {rank} received from {left_neighb}!")
+# right_clusters = req_right.wait()
+# debug(f"Generation {gen}: processor {rank} received from {right_neighb}!")
+#
+# debug(f"Generation {gen}: processor {rank} finished all exchanges!")
+#
+# pop = [cluster for idx, cluster in enumerate(pop) if idx not in cluster_indices]
+# pop += left_clusters + right_clusters
+# energies = [cluster.get_potential_energy() for cluster in pop]

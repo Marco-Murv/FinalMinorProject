@@ -257,9 +257,9 @@ def get_configuration(config_file):
                         help='Mating Method')
     parser.add_argument('--children_perc', type=float, metavar='',
                         help='Fraction of opulation that will have a child')
-    parser.add_argument('--cluster_radius', default=2.0, type=float, metavar='',
+    parser.add_argument('--cluster_radius', type=float, metavar='',
                         help='Dimension of initial random clusters')
-    parser.add_argument('--max_no_success', default=10, type=int, metavar='',
+    parser.add_argument('--max_no_success', type=int, metavar='',
                         help='Consecutive generations without new minimum')
     parser.add_argument('--max_gen', type=int, metavar='',
                         help='Maximum number of generations')
