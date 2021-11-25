@@ -22,9 +22,110 @@ from ga_distributed import flatten_list
 from mpi4py import MPI
 
 
+def one_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_right, perc_pop_exchanged=0.2):
+    """
+    Performs an exchange of clusters with a neighbouring processor (the neighbour has rank +1).
+
+    @param pop: the sub-population of a processor
+    @param sub_pop_size: the size of the sub-population
+    @param gen: generation where the exchange occurs (mainly for printing progress of the communications)
+    @param comm: the MPI communicator
+    @param rank: rank of this processor
+    @param send_req_right: send communication request handle of the previous cluster exchange with right neighbour
+    @param perc_pop_exchanged: percentage of the sub-population that should be exchanged with each neighbour
+    @return: population with the newly received clusters and corresponding energies
+    """
+
+    # Number of clusters to be exchanged with a single neighbour.
+    num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int)  # TODO: how many to swap?
+    rng = np.random.default_rng()
+    cluster_indices = rng.choice(sub_pop_size, size=num_exchanges, replace=False)
+
+    num_procs = comm.Get_size()
+    left_neighb = (rank - 1) % num_procs
+    right_neighb = (rank + 1) % num_procs
+    right_msg = [pop[i] for i in cluster_indices]
+
+    # Wait to make sure that the neighbouring processor correctly received the previously sent clusters before
+    # before exchanging a new group of clusters!
+    if send_req_right is not None:
+        send_req_right.wait()
+    send_req_right = comm.isend(right_msg, dest=right_neighb)
+    req_left = comm.irecv(source=left_neighb)
+    left_clusters = req_left.wait()
+
+    debug(f"    Generation {gen}: processor {rank} finished all exchanges!")
+
+    # Filter out the exchanged clusters and instead add the newly received clusters from neighbouring populations.
+    pop = [cluster for idx, cluster in enumerate(pop) if idx not in cluster_indices]
+    pop += left_clusters
+    energies = [cluster.get_potential_energy() for cluster in pop]
+
+    return pop, energies, send_req_right
+
+
+def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, send_req_right, perc_pop_exchanged=0.2):
+    """
+    Performs an exchange of clusters with both neighbouring processors (the neighbours have rank +/- 1).
+
+    @param pop: the sub-population of a processor
+    @param sub_pop_size: the size of the sub-population
+    @param gen: generation where the exchange occurs (mainly for printing progress of the communications)
+    @param comm: the MPI communicator
+    @param rank: rank of this processor
+    @param send_req_left: send communication request handle of the previous cluster exchange with left neighbour
+    @param send_req_right: send communication request handle of the previous cluster exchange with right neighbour
+    @param perc_pop_exchanged: percentage of the sub-population that should be exchanged with each neighbour
+    @return: population with the newly received clusters and corresponding energies
+    """
+
+    # Number of clusters to be exchanged with a single neighbour.
+    num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int) * 2  # TODO: how many to swap?
+    rng = np.random.default_rng()
+    cluster_indices = rng.choice(sub_pop_size, size=num_exchanges, replace=False)
+
+    num_procs = comm.Get_size()
+    left_neighb = (rank - 1) % num_procs
+    left_msg = [pop[i] for i in cluster_indices[:(num_exchanges // 2)]] # TODO: encountered a rare IOOB error once?
+    right_neighb = (rank + 1) % num_procs
+    right_msg = [pop[i] for i in cluster_indices[(num_exchanges // 2):]]
+
+    # Wait to make sure that the neighbouring processors correctly received the previously sent clusters before
+    # before exchanging a new group of clusters!
+    if send_req_left is not None:
+        send_req_left.wait()
+        send_req_right.wait()
+    send_req_left = comm.isend(left_msg, dest=left_neighb)
+    send_req_right = comm.isend(right_msg, dest=right_neighb)
+
+    recv_req_left = comm.irecv(source=left_neighb)
+    recv_req_right = comm.irecv(source=right_neighb)
+    left_clusters = recv_req_left.wait()
+    right_clusters = recv_req_right.wait()
+
+    debug(f"Generation {gen}: processor {rank} finished all exchanges!")
+
+    # Filter out the exchanged clusters and instead add the newly received clusters from neighbouring populations.
+    pop = [cluster for idx, cluster in enumerate(pop) if idx not in cluster_indices]
+    pop += left_clusters + right_clusters
+    energies = [cluster.get_potential_energy() for cluster in pop]
+
+    return pop, energies, send_req_left, send_req_right
+
+
 def ga_sub_populations():
+    """
+    Performs a parallel execution of a Genetic Algorithm using the sub-populations method.
+
+    Each processor has its own independent population of a smaller size and communicates with neighbouring processors
+    to exchange clusters to prevent population stagnation.
+
+    @return:
+    """
+
     # Raise real errors when numpy encounters a division by zero.
     np.seterr(divide='raise')
+    # np.random.seed(241)
 
     # Initialising MPI
     comm = MPI.COMM_WORLD
@@ -61,7 +162,6 @@ def ga_sub_populations():
     gen_no_success = 0
 
     # Used for swapping random clusters between sub-populations
-    rng = np.random.default_rng()
 
     send_req_left = None
     send_req_right = None
@@ -72,55 +172,11 @@ def ga_sub_populations():
         # Exchange clusters with neighbouring processors
         # TODO: proper criteria to start exchanges between all processors? Now it's just set to every 10th gen.
         if (gen % 10) == 0:
-            if send_req_left is not None:
-                send_req_left.wait()
-                send_req_right.wait()
-
-            perc_pop_exchanged = 0.2
-            num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int) * 2  # TODO: how many to swap?
-            cluster_indices = rng.choice(sub_pop_size, size=num_exchanges, replace=False)
-
-            left_neighb = (rank - 1) % num_procs
-            left_msg = [pop[i] for i in cluster_indices[:(num_exchanges // 2)]]
-            right_neighb = (rank + 1) % num_procs
-            right_msg = [pop[i] for i in cluster_indices[(num_exchanges // 2):]]
-
-            send_req_left = comm.isend(left_msg, dest=left_neighb)
-            send_req_right = comm.isend(right_msg, dest=right_neighb)
-
-            recv_req_left = comm.irecv(source=left_neighb)
-            recv_req_right = comm.irecv(source=right_neighb)
-            left_clusters = recv_req_left.wait()
-            right_clusters = recv_req_right.wait()
-
-            debug(f"Generation {gen}: processor {rank} finished all exchanges!")
-
-            pop = [cluster for idx, cluster in enumerate(pop) if idx not in cluster_indices]
-            pop += left_clusters + right_clusters
-            energies = [cluster.get_potential_energy() for cluster in pop]
-
-
-
-            # perc_pop_exchanged = 0.2
-            # num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int)  # TODO: how many to swap?
-            # cluster_indices = rng.choice(sub_pop_size, size=num_exchanges, replace=False)
-            #
-            # left_neighb = (rank - 1) % num_procs
-            # right_neighb = (rank + 1) % num_procs
-            # right_msg = [pop[i] for i in cluster_indices]
-            #
-            # send_req = comm.isend(right_msg, dest=right_neighb)
-            # # debug(f"Generation {gen}: processor {rank} sent message to {right_neighb}!")
-            # req_left = comm.irecv(source=left_neighb)
-            # left_clusters = req_left.wait()
-            # # debug(f"    Generation {gen}: processor {rank} received from {left_neighb}!")
-            # # send_req.wait()
-            #
-            # debug(f"    Generation {gen}: processor {rank} finished all exchanges!")
-            #
-            # pop = [cluster for idx, cluster in enumerate(pop) if idx not in cluster_indices]
-            # pop += left_clusters
-            # energies = [cluster.get_potential_energy() for cluster in pop]
+            # Exchange clusters with both neighbouring processors
+            pop, energies, send_req_left, send_req_right = bi_directional_exchange(pop, sub_pop_size, gen, comm, rank,
+                                                                                   send_req_left, send_req_right)
+            # Exchange clusters with only a single neighbour
+            # pop, energies, send_req_right = one_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_right)
 
         # Get fitness values
         pop_fitness = fitness(energies, func=c.fitness_func)
@@ -175,27 +231,3 @@ def ga_sub_populations():
 
 if __name__ == "__main__":
     ga_sub_populations()
-
-# perc_pop_exchanged = 0.2
-# num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int) * 2  # TODO: how many to swap?
-# cluster_indices = rng.choice(sub_pop_size, size=num_exchanges, replace=False)
-#
-# left_neighb = (rank - 1) % num_procs
-# left_msg = [pop[i] for i in cluster_indices[:(num_exchanges // 2)]]
-# right_neighb = (rank + 1) % num_procs
-# right_msg = [pop[i] for i in cluster_indices[(num_exchanges // 2):]]
-#
-# comm.isend(left_msg, dest=left_neighb)
-# comm.isend(right_msg, dest=right_neighb)
-# req_left = comm.irecv(source=left_neighb)
-# req_right = comm.irecv(source=right_neighb)
-# left_clusters = req_left.wait()
-# debug(f"Generation {gen}: processor {rank} received from {left_neighb}!")
-# right_clusters = req_right.wait()
-# debug(f"Generation {gen}: processor {rank} received from {right_neighb}!")
-#
-# debug(f"Generation {gen}: processor {rank} finished all exchanges!")
-#
-# pop = [cluster for idx, cluster in enumerate(pop) if idx not in cluster_indices]
-# pop += left_clusters + right_clusters
-# energies = [cluster.get_potential_energy() for cluster in pop]
