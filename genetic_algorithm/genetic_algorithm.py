@@ -196,7 +196,7 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
         cluster.calc = calc
         try:
             optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
-        except:  # deletes cluster from population if division by zero error is encountered.
+        except FloatingPointError:  # deletes cluster from population if division by zero error is encountered.
             population.remove(cluster)
             debug("DIVIDE BY ZERO REMOVED FROM POPULATION!")
 
