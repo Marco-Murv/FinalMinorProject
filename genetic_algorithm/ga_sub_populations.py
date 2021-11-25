@@ -156,7 +156,7 @@ def ga_sub_populations():
     energies = optimise_local(pop, c.calc, c.local_optimiser)
 
     # Keep track of global minima. Initialised with random cluster
-    best_min = [pop[0]] # TODO: remove first entries at the end before storing prob?
+    best_min = [pop[0]]
     local_min = [pop[0]]
     energies_min = np.array(pop[0].get_potential_energy())
 
@@ -211,6 +211,10 @@ def ga_sub_populations():
             gen_no_success += 1
 
         gen += 1
+
+    # Delete first values from best_min and local_min as these were initialised with a random cluster
+    best_min.pop(0)
+    local_min.pop(0)
 
     # =========================================================================
     # Combine all results and store them
