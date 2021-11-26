@@ -449,7 +449,7 @@ def genetic_algorithm() -> None:
     np.seterr(divide='raise')
 
     # Either store current np.random state or retreive state from previous run
-    store_or_reuse_state(reuse=True)
+    store_or_reuse_state(reuse=False)
 
     # Provide file name
     db_file = "genetic_algorithm_results.db"

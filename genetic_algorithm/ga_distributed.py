@@ -156,7 +156,7 @@ def ga_distributed():
 
     if rank == 0:
         # Store / 
-        process_data.process_data(local_min)
+        process_data.print_stat(local_min)
         debug(f"Found {len(local_min)} local minima in total.")
         debug("The evolution of the global minimum:")
         debug([cluster.get_potential_energy() for cluster in best_min])
