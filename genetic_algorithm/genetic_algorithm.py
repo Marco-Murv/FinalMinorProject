@@ -342,9 +342,8 @@ def store_results_database(global_min, local_min, db, c):
              max_no_success=c.max_no_success, run_id=c.run_id)
 
     for cluster in local_min:
-        db.write(cluster, global_min=False, pop_size=c.pop_size,
-                           cluster_size=c.cluster_size, max_gens=c.max_gen,
-                           max_no_success=c.max_no_success, run_id=c.run_id)
+        db.write(cluster, global_min=False, pop_size=c.pop_size, cluster_size=c.cluster_size, max_gens=c.max_gen,
+                 max_no_success=c.max_no_success, run_id=c.run_id)
 
     return 0
 
@@ -391,7 +390,6 @@ def genetic_algorithm() -> None:
     lowest_energies = []
     highest_energies = []
     average_energies = []
-
 
     # Start timing
     ga_start_time = time.time()
@@ -474,6 +472,4 @@ def genetic_algorithm() -> None:
 
 
 if __name__ == '__main__':
-    
     genetic_algorithm()
-    
