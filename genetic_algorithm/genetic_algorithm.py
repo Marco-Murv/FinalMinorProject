@@ -259,9 +259,9 @@ def get_configuration(config_file):
                         help='Mating Method')
     parser.add_argument('--children_perc', type=float, metavar='',
                         help='Fraction of opulation that will have a child')
-    parser.add_argument('--cluster_radius', default=2.0, type=float, metavar='',
+    parser.add_argument('--cluster_radius', type=float, metavar='',
                         help='Dimension of initial random clusters')
-    parser.add_argument('--max_no_success', default=10, type=int, metavar='',
+    parser.add_argument('--max_no_success', type=int, metavar='',
                         help='Consecutive generations without new minimum')
     parser.add_argument('--max_gen', type=int, metavar='',
                         help='Maximum number of generations')
@@ -354,7 +354,7 @@ def natural_selection_step(pop, energies, pop_size, dE_thr, fitness_func):
     @param pop_size: maximum population size
     @param dE_thr: minimum energy threshold for clusters with nearly equal energies
     @param fitness_func: function used for calculating fitness values
-    @return: smaller population after natural selection with the corresponding energy and fitness values
+    @return: sorted smaller population after natural selection with the corresponding energy and fitness values
     """
     # Sort based on energies, check if not too close (DeltaEnergy) and select popul_size best
     pop_sort_i = np.argsort(energies)
@@ -378,28 +378,6 @@ def natural_selection_step(pop, energies, pop_size, dE_thr, fitness_func):
     energies = new_energies.copy()
 
     return pop, energies
-
-
-def store_local_minima(newborns, energies, local_min, energies_min, dE_thr):
-    """
-    Stores the new local minima from the newborns list into local_min list if they differ sufficiently from
-    previously found local minima.
-
-    @param newborns: list of new cluster with new local minima
-    @param energies: energies of the newborns clusters
-    @param local_min: previously found local minima clusters
-    @param energies_min: energies of previously found local minima
-    @param dE_thr: minimum energy threshold for different local minima
-    @return: updated list containing new local minima and the corresponding energies
-    """
-
-    for i in range(len(newborns)):
-        too_close = np.isclose(energies_min, energies[-(i + 1)], atol=dE_thr)
-        if not np.any(too_close):
-            local_min.append(newborns[i])
-            energies_min = np.append(energies_min, energies[i])
-
-    return local_min, energies_min
 
 
 def store_results_database(global_min, local_min, db, c):
@@ -446,8 +424,11 @@ def genetic_algorithm() -> None:
     # np.random.seed(241)
     np.seterr(divide='raise')
 
-    # Either store current np.random state or retreive state from previous run
-    store_or_reuse_state(reuse=True)
+    # Either store current np.random state or retrieve state from previous run
+    store_or_reuse_state(reuse=False)   # TODO: add these booleans + other stuff to config
+
+    # Show evolutionary progress plot
+    show_EPP = False
 
     # Provide file name
     db_file = "genetic_algorithm_results.db"
@@ -459,10 +440,6 @@ def genetic_algorithm() -> None:
     # Parameters and database
     # =========================================================================
 
-    # Connect to database
-    db_file = os.path.join(os.path.dirname(__file__), db_file)
-    db = ase.db.connect(db_file)
-
     # Parse terminal input
     c = get_configuration(config_file)
 
@@ -470,7 +447,6 @@ def genetic_algorithm() -> None:
     config_info(c)
 
     # Lists for EPP plots
-    show_EPP = True
     lowest_energies = []
     highest_energies = []
     average_energies = []
@@ -484,9 +460,8 @@ def genetic_algorithm() -> None:
     energies = optimise_local(pop, c.calc, c.local_optimiser)
 
     # Keep track of global minima. Initialised with random cluster
-    best_min = [pop[0]]
+    best_min = pop[0]
     local_min = [pop[0]]
-    energies_min = np.array(pop[0].get_potential_energy())
 
     # =========================================================================
     # Main loop
@@ -512,9 +487,8 @@ def genetic_algorithm() -> None:
         energies += optimise_local(newborns, c.calc, c.local_optimiser)
         pop += newborns
 
-        # Keep track of new local minima
+        # Add new local minima to the list
         local_min += newborns
-        # local_min, energies_min = store_local_minima(newborns, energies, local_min, energies_min, c.dE_thr)
 
         # Natural selection
         pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr, c.fitness_func)
@@ -525,9 +499,9 @@ def genetic_algorithm() -> None:
         average_energies.append(np.mean(energies))
 
         # Store current best
-        if energies[0] < best_min[-1].get_potential_energy():
+        if energies[0] < best_min.get_potential_energy():
             debug("New global minimum: ", energies[0])
-            best_min.append(pop[0])
+            best_min = pop[0]
             gen_no_success = 0  # This is success, so set to zero.
         else:
             gen_no_success += 1
@@ -535,10 +509,13 @@ def genetic_algorithm() -> None:
         gen += 1
 
     # Store / report
-    debug(f"Local minima before post processing: {len(local_min)} \n")
+    debug(f"\nLocal minima before post processing: {len(local_min)} \n")
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
 
+    # Connect to database and store results
+    db_file = os.path.join(os.path.dirname(__file__), db_file)
+    db = ase.db.connect(db_file)
     store_results_database(local_min[0], local_min[1:], db, c)
 
     # Show EPP plot if desired
