@@ -42,6 +42,8 @@ from datetime import datetime as dt
 from dataclasses import dataclass
 import time
 
+import pickle
+
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
@@ -424,12 +426,30 @@ def store_results_database(global_min, local_min, db, c):
     return 0
 
 
+def store_or_reuse_state(reuse=False):
+    state_file = "random_state.txt"
+    state_file = os.path.join(os.path.dirname(__file__), state_file)
+
+    if not reuse:
+        with open(state_file, 'wb') as f:
+            random_state = np.random.get_state()
+            pickle.dump(random_state, f)
+    else:
+        debug("REUSING RANDOM STATE FROM PREVIOUS RUN\n")        
+        with open(state_file, 'rb') as f:
+            reuse_state = pickle.load(f)
+            np.random.set_state(reuse_state)
+
+
 def genetic_algorithm() -> None:
     """
     The main genetic algorithm
     """
     # np.random.seed(241)
     np.seterr(divide='raise')
+
+    # Either store current np.random state or retreive state from previous run
+    store_or_reuse_state(reuse=True)
 
     # Provide file name
     db_file = "genetic_algorithm_results.db"
@@ -518,7 +538,7 @@ def genetic_algorithm() -> None:
         gen += 1
 
     # Store / report
-    print(f"Local minima before post processing: {len(local_min)} \n")
+    debug(f"Local minima before post processing: {len(local_min)} \n")
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
 

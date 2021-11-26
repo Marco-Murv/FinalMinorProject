@@ -9,5 +9,5 @@
 *.vscode/
 *.db
 *.yaml
-
+*random_state.txt
 *.png
