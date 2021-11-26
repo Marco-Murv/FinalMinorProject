@@ -353,7 +353,7 @@ def store_or_reuse_state(reuse=False):
     state_file = os.path.join(os.path.dirname(__file__), state_file)
 
     if not reuse:
-        with open(state_file, 'wb') as f:
+        with open(state_file, 'wb+') as f:
             random_state = np.random.get_state()
             pickle.dump(random_state, f)
     else:
