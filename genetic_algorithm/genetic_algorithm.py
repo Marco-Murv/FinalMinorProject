@@ -203,15 +203,16 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     @param optimiser: ASE Optimiser (e.g. LBFGS)
     @returns: -> Optimised population
     """
-    for cluster in population:
+    invalid_indices = []
+    for idx, cluster in enumerate(population):
         cluster.calc = calc
         try:
             optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
         except FloatingPointError:  # deletes cluster from population if division by zero error is encountered.
-            population.remove(cluster)
+            invalid_indices.append(idx)
             debug("DIVIDE BY ZERO REMOVED FROM POPULATION!")
 
-    return [cluster.get_potential_energy() for cluster in population]
+    return [cluster.get_potential_energy() for idx, cluster in enumerate(population) if idx not in invalid_indices]
 
 
 def fitness(energies, func="exponential") -> np.ndarray:
