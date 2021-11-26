@@ -30,18 +30,15 @@ import ase.db
 import mutators
 import argparse
 import ase.db
+import pickle
 
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
-from ase.visualize import view
-from ase.io import write
 from typing import List
 from mating import mating
 from datetime import datetime as dt
 from dataclasses import dataclass
-
-import pickle
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
@@ -88,6 +85,9 @@ class Config:
     max_gen: int = None
     dE_thr: float = None
     run_id: int = None
+    reuse_state: bool = None
+    show_plot: bool = None
+    db_file: str = None
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
 
@@ -127,6 +127,12 @@ def get_configuration(config_file):
                         help='Maximum number of generations')
     parser.add_argument('--delta_energy_thr', type=float, metavar='',
                         help='Minimum difference in energy between clusters')
+    parser.add_argument('--reuse_state', type=bool, metavar='',
+                        help="Reuse the same random state from previous run")
+    parser.add_argument('--show_plot', type=bool, metavar='',
+                        help="Show Evolutionary Progress Plot")
+    parser.add_argument('--db_file', type=str, metavar='',
+                        help="The database file to write results to")
     parser.add_argument('--run_id', type=int, metavar='',
                         help="ID for the current run. Increments automatically")
 
@@ -143,6 +149,9 @@ def get_configuration(config_file):
     c.max_no_success = p.max_no_success or yaml_conf['max_no_success']
     c.max_gen = p.max_gen or yaml_conf['max_gen']
     c.dE_thr = p.delta_energy_thr or yaml_conf['delta_energy_thr']
+    c.reuse_state = p.reuse_state or yaml_conf['reuse_state']
+    c.show_plot = p.show_plot or yaml_conf['show_plot']
+    c.db_file = p.db_file or yaml_conf['db_file']
     c.run_id = p.run_id or yaml_conf['run_id']
 
     # Increment run_id for next run
@@ -229,68 +238,6 @@ def fitness(energies, func="exponential") -> np.ndarray:
     else:
         print(f"'{func}' is not a valid fitness function. Using default")
         return fitness(energies)
-
-
-def get_configuration(config_file):
-    """
-    Set the parameters for this run.
-
-    @param config_file: Filename to the yaml configuration
-    @type config_file: str
-    @return: object with all the configuration parameters
-    @rtype: Config
-    """
-
-    # Get parameters from config file
-    config_file = os.path.join(os.path.dirname(__file__), config_file)
-    with open(config_file) as f:
-        yaml_conf = yaml.safe_load(os.path.expandvars(f.read()))
-
-    # Create parser for terminal input
-    parser = argparse.ArgumentParser(description='Genetic Algorithm PGGO')
-
-    parser.add_argument('--cluster_size', type=int, metavar='',
-                        help='Number of atoms per cluster')
-    parser.add_argument('--pop_size', type=int, metavar='',
-                        help='Number of clusters in the population')
-    parser.add_argument('--fitness_func', metavar='',
-                        help='Fitness function')
-    parser.add_argument('--mating_method', metavar='',
-                        help='Mating Method')
-    parser.add_argument('--children_perc', type=float, metavar='',
-                        help='Fraction of opulation that will have a child')
-    parser.add_argument('--cluster_radius', type=float, metavar='',
-                        help='Dimension of initial random clusters')
-    parser.add_argument('--max_no_success', type=int, metavar='',
-                        help='Consecutive generations without new minimum')
-    parser.add_argument('--max_gen', type=int, metavar='',
-                        help='Maximum number of generations')
-    parser.add_argument('--delta_energy_thr', type=float, metavar='',
-                        help='Minimum difference in energy between clusters')
-    parser.add_argument('--run_id', type=int, metavar='',
-                        help="ID for the current run. Increments automatically")
-
-    p = parser.parse_args()
-
-    c = Config()
-    # Set variables to terminal input if possible, otherwise use config file
-    c.cluster_size = p.cluster_size or yaml_conf['cluster_size']
-    c.pop_size = p.pop_size or yaml_conf['pop_size']
-    c.fitness_func = p.fitness_func or yaml_conf['fitness_func']
-    c.mating_method = p.mating_method or yaml_conf['mating_method']
-    c.children_perc = p.children_perc or yaml_conf['children_perc']
-    c.cluster_radius = p.cluster_radius or yaml_conf['cluster_radius']
-    c.max_no_success = p.max_no_success or yaml_conf['max_no_success']
-    c.max_gen = p.max_gen or yaml_conf['max_gen']
-    c.dE_thr = p.delta_energy_thr or yaml_conf['delta_energy_thr']
-    c.run_id = p.run_id or yaml_conf['run_id']
-
-    # Increment run_id for next run
-    yaml_conf['run_id'] += 1
-    with open(config_file, 'w') as f:
-        yaml.dump(yaml_conf, f)
-
-    return c
 
 
 def plot_EPP(lowest_energies, highest_energies, average_energies, run_id):
@@ -424,27 +371,21 @@ def genetic_algorithm() -> None:
     # np.random.seed(241)
     np.seterr(divide='raise')
 
-    # Either store current np.random state or retrieve state from previous run
-    store_or_reuse_state(reuse=False)   # TODO: add these booleans + other stuff to config
-
-    # Show evolutionary progress plot
-    show_EPP = False
-
-    # Provide file name
-    db_file = "genetic_algorithm_results.db"
+    # =========================================================================
+    # Parameters
+    # =========================================================================
 
     # File to get default configuration / run information
     config_file = "run_config.yaml"
-
-    # =========================================================================
-    # Parameters and database
-    # =========================================================================
 
     # Parse terminal input
     c = get_configuration(config_file)
 
     # Output the run info to stdout
     config_info(c)
+
+    # Either store current np.random state or retrieve state from previous run
+    store_or_reuse_state(reuse=c.reuse_state)
 
     # Lists for EPP plots
     lowest_energies = []
@@ -514,12 +455,12 @@ def genetic_algorithm() -> None:
     process_data.print_stats(local_min)
 
     # Connect to database and store results
-    db_file = os.path.join(os.path.dirname(__file__), db_file)
+    db_file = os.path.join(os.path.dirname(__file__), c.db_file)
     db = ase.db.connect(db_file)
     store_results_database(local_min[0], local_min[1:], db, c)
 
     # Show EPP plot if desired
-    if show_EPP:
+    if c.show_plot:
         plot_EPP(lowest_energies, highest_energies, average_energies, c.run_id)
 
     return 0
