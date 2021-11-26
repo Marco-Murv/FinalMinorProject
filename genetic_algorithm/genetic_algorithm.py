@@ -292,7 +292,7 @@ def get_mutants(pop, cluster_radius, cluster_size, p_static=0.05, p_dynamic=0.05
     return mutants
 
 
-def natural_selection_step(pop, energies, pop_size, dE_thr, fitness_func):
+def natural_selection_step(pop, energies, pop_size, dE_thr):
     """
     Applies a natural selection step to the given population.
 
@@ -300,7 +300,6 @@ def natural_selection_step(pop, energies, pop_size, dE_thr, fitness_func):
     @param energies: energies corresponding to each cluster in population
     @param pop_size: maximum population size
     @param dE_thr: minimum energy threshold for clusters with nearly equal energies
-    @param fitness_func: function used for calculating fitness values
     @return: sorted smaller population after natural selection with the corresponding energy and fitness values
     """
     # Sort based on energies, check if not too close (DeltaEnergy) and select popul_size best
@@ -432,7 +431,7 @@ def genetic_algorithm() -> None:
         local_min += newborns
 
         # Natural selection
-        pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr, c.fitness_func)
+        pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr)
 
         # Store info about lowest, average, and highest energy of this gen for EPP
         lowest_energies.append(energies[0])
