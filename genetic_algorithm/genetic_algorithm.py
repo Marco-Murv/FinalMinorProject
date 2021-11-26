@@ -24,25 +24,22 @@ import sys
 import inspect
 import numpy as np
 import yaml
-import os
 import matplotlib.pyplot as plt
 import ase.db
 import mutators
 import argparse
 import ase.db
+import pickle
+import time
 
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
-from ase.visualize import view
-from ase.io import write
 from typing import List
 from mating import mating
 from datetime import datetime as dt
 from dataclasses import dataclass
 import time
-
-import pickle
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
@@ -90,6 +87,9 @@ class Config:
     max_gen: int = None
     dE_thr: float = None
     run_id: int = None
+    reuse_state: bool = None
+    show_plot: bool = None
+    db_file: str = None
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
 
@@ -129,6 +129,12 @@ def get_configuration(config_file):
                         help='Maximum number of generations')
     parser.add_argument('--delta_energy_thr', type=float, metavar='',
                         help='Minimum difference in energy between clusters')
+    parser.add_argument('--reuse_state', type=bool, metavar='',
+                        help="Reuse the same random state from previous run")
+    parser.add_argument('--show_plot', type=bool, metavar='',
+                        help="Show Evolutionary Progress Plot")
+    parser.add_argument('--db_file', type=str, metavar='',
+                        help="The database file to write results to")
     parser.add_argument('--run_id', type=int, metavar='',
                         help="ID for the current run. Increments automatically")
 
@@ -145,6 +151,9 @@ def get_configuration(config_file):
     c.max_no_success = p.max_no_success or yaml_conf['max_no_success']
     c.max_gen = p.max_gen or yaml_conf['max_gen']
     c.dE_thr = p.delta_energy_thr or yaml_conf['delta_energy_thr']
+    c.reuse_state = p.reuse_state or yaml_conf['reuse_state']
+    c.show_plot = p.show_plot or yaml_conf['show_plot']
+    c.db_file = p.db_file or yaml_conf['db_file']
     c.run_id = p.run_id or yaml_conf['run_id']
 
     # Increment run_id for next run
@@ -196,15 +205,16 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     @param optimiser: ASE Optimiser (e.g. LBFGS)
     @returns: -> Optimised population
     """
-    for cluster in population:
+    invalid_indices = []
+    for idx, cluster in enumerate(population):
         cluster.calc = calc
         try:
             optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
         except FloatingPointError:  # deletes cluster from population if division by zero error is encountered.
-            population.remove(cluster)
+            invalid_indices.append(idx)
             debug("DIVIDE BY ZERO REMOVED FROM POPULATION!")
 
-    return [cluster.get_potential_energy() for cluster in population]
+    return [cluster.get_potential_energy() for idx, cluster in enumerate(population) if idx not in invalid_indices]
 
 
 def fitness(energies, func="exponential") -> np.ndarray:
@@ -231,68 +241,6 @@ def fitness(energies, func="exponential") -> np.ndarray:
     else:
         print(f"'{func}' is not a valid fitness function. Using default")
         return fitness(energies)
-
-
-def get_configuration(config_file):
-    """
-    Set the parameters for this run.
-
-    @param config_file: Filename to the yaml configuration
-    @type config_file: str
-    @return: object with all the configuration parameters
-    @rtype: Config
-    """
-
-    # Get parameters from config file
-    config_file = os.path.join(os.path.dirname(__file__), config_file)
-    with open(config_file) as f:
-        yaml_conf = yaml.safe_load(os.path.expandvars(f.read()))
-
-    # Create parser for terminal input
-    parser = argparse.ArgumentParser(description='Genetic Algorithm PGGO')
-
-    parser.add_argument('--cluster_size', type=int, metavar='',
-                        help='Number of atoms per cluster')
-    parser.add_argument('--pop_size', type=int, metavar='',
-                        help='Number of clusters in the population')
-    parser.add_argument('--fitness_func', metavar='',
-                        help='Fitness function')
-    parser.add_argument('--mating_method', metavar='',
-                        help='Mating Method')
-    parser.add_argument('--children_perc', type=float, metavar='',
-                        help='Fraction of opulation that will have a child')
-    parser.add_argument('--cluster_radius', default=2.0, type=float, metavar='',
-                        help='Dimension of initial random clusters')
-    parser.add_argument('--max_no_success', default=10, type=int, metavar='',
-                        help='Consecutive generations without new minimum')
-    parser.add_argument('--max_gen', type=int, metavar='',
-                        help='Maximum number of generations')
-    parser.add_argument('--delta_energy_thr', type=float, metavar='',
-                        help='Minimum difference in energy between clusters')
-    parser.add_argument('--run_id', type=int, metavar='',
-                        help="ID for the current run. Increments automatically")
-
-    p = parser.parse_args()
-
-    c = Config()
-    # Set variables to terminal input if possible, otherwise use config file
-    c.cluster_size = p.cluster_size or yaml_conf['cluster_size']
-    c.pop_size = p.pop_size or yaml_conf['pop_size']
-    c.fitness_func = p.fitness_func or yaml_conf['fitness_func']
-    c.mating_method = p.mating_method or yaml_conf['mating_method']
-    c.children_perc = p.children_perc or yaml_conf['children_perc']
-    c.cluster_radius = p.cluster_radius or yaml_conf['cluster_radius']
-    c.max_no_success = p.max_no_success or yaml_conf['max_no_success']
-    c.max_gen = p.max_gen or yaml_conf['max_gen']
-    c.dE_thr = p.delta_energy_thr or yaml_conf['delta_energy_thr']
-    c.run_id = p.run_id or yaml_conf['run_id']
-
-    # Increment run_id for next run
-    yaml_conf['run_id'] += 1
-    with open(config_file, 'w') as f:
-        yaml.dump(yaml_conf, f)
-
-    return c
 
 
 def plot_EPP(lowest_energies, highest_energies, average_energies, run_id):
@@ -347,7 +295,7 @@ def get_mutants(pop, cluster_radius, cluster_size, p_static=0.05, p_dynamic=0.05
     return mutants
 
 
-def natural_selection_step(pop, energies, pop_size, dE_thr, fitness_func):
+def natural_selection_step(pop, energies, pop_size, dE_thr):
     """
     Applies a natural selection step to the given population.
 
@@ -355,8 +303,7 @@ def natural_selection_step(pop, energies, pop_size, dE_thr, fitness_func):
     @param energies: energies corresponding to each cluster in population
     @param pop_size: maximum population size
     @param dE_thr: minimum energy threshold for clusters with nearly equal energies
-    @param fitness_func: function used for calculating fitness values
-    @return: smaller population after natural selection with the corresponding energy and fitness values
+    @return: sorted smaller population after natural selection with the corresponding energy and fitness values
     """
     # Sort based on energies, check if not too close (DeltaEnergy) and select popul_size best
     pop_sort_i = np.argsort(energies)
@@ -382,28 +329,6 @@ def natural_selection_step(pop, energies, pop_size, dE_thr, fitness_func):
     return pop, energies
 
 
-def store_local_minima(newborns, energies, local_min, energies_min, dE_thr):
-    """
-    Stores the new local minima from the newborns list into local_min list if they differ sufficiently from
-    previously found local minima.
-
-    @param newborns: list of new cluster with new local minima
-    @param energies: energies of the newborns clusters
-    @param local_min: previously found local minima clusters
-    @param energies_min: energies of previously found local minima
-    @param dE_thr: minimum energy threshold for different local minima
-    @return: updated list containing new local minima and the corresponding energies
-    """
-
-    for i in range(len(newborns)):
-        too_close = np.isclose(energies_min, energies[-(i + 1)], atol=dE_thr)
-        if not np.any(too_close):
-            local_min.append(newborns[i])
-            energies_min = np.append(energies_min, energies[i])
-
-    return local_min, energies_min
-
-
 def store_results_database(global_min, local_min, db, c):
     """
     Writes GA results to the database.
@@ -419,9 +344,8 @@ def store_results_database(global_min, local_min, db, c):
              max_no_success=c.max_no_success, run_id=c.run_id)
 
     for cluster in local_min:
-        db.write(cluster, global_min=False, pop_size=c.pop_size,
-                           cluster_size=c.cluster_size, max_gens=c.max_gen,
-                           max_no_success=c.max_no_success, run_id=c.run_id)
+        db.write(cluster, global_min=False, pop_size=c.pop_size, cluster_size=c.cluster_size, max_gens=c.max_gen,
+                 max_no_success=c.max_no_success, run_id=c.run_id)
 
     return 0
 
@@ -431,7 +355,7 @@ def store_or_reuse_state(reuse=False):
     state_file = os.path.join(os.path.dirname(__file__), state_file)
 
     if not reuse:
-        with open(state_file, 'wb') as f:
+        with open(state_file, 'wb+') as f:
             random_state = np.random.get_state()
             pickle.dump(random_state, f)
     else:
@@ -448,22 +372,12 @@ def genetic_algorithm() -> None:
     # np.random.seed(241)
     np.seterr(divide='raise')
 
-    # Either store current np.random state or retreive state from previous run
-    store_or_reuse_state(reuse=False)
-
-    # Provide file name
-    db_file = "genetic_algorithm_results.db"
+    # =========================================================================
+    # Parameters
+    # =========================================================================
 
     # File to get default configuration / run information
     config_file = "run_config.yaml"
-
-    # =========================================================================
-    # Parameters and database
-    # =========================================================================
-
-    # Connect to database
-    db_file = os.path.join(os.path.dirname(__file__), db_file)
-    db = ase.db.connect(db_file)
 
     # Parse terminal input
     c = get_configuration(config_file)
@@ -471,12 +385,16 @@ def genetic_algorithm() -> None:
     # Output the run info to stdout
     config_info(c)
 
+    # Either store current np.random state or retrieve state from previous run
+    store_or_reuse_state(reuse=c.reuse_state)
+
     # Lists for EPP plots
-    # show_EPP = True
-    show_EPP = False
     lowest_energies = []
     highest_energies = []
     average_energies = []
+
+    # Start timing
+    ga_start_time = time.time()
 
     # =========================================================================
     # Initial population
@@ -487,9 +405,8 @@ def genetic_algorithm() -> None:
     energies = optimise_local(pop, c.calc, c.local_optimiser)
 
     # Keep track of global minima. Initialised with random cluster
-    best_min = [pop[0]]
+    best_min = pop[0]
     local_min = [pop[0]]
-    energies_min = np.array(pop[0].get_potential_energy())
 
     # =========================================================================
     # Main loop
@@ -515,12 +432,11 @@ def genetic_algorithm() -> None:
         energies += optimise_local(newborns, c.calc, c.local_optimiser)
         pop += newborns
 
-        # Keep track of new local minima
+        # Add new local minima to the list
         local_min += newborns
-        # local_min, energies_min = store_local_minima(newborns, energies, local_min, energies_min, c.dE_thr)
 
         # Natural selection
-        pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr, c.fitness_func)
+        pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr)
 
         # Store info about lowest, average, and highest energy of this gen for EPP
         lowest_energies.append(energies[0])
@@ -528,24 +444,30 @@ def genetic_algorithm() -> None:
         average_energies.append(np.mean(energies))
 
         # Store current best
-        if energies[0] < best_min[-1].get_potential_energy():
+        if energies[0] < best_min.get_potential_energy():
             debug("New global minimum: ", energies[0])
-            best_min.append(pop[0])
+            best_min = pop[0]
             gen_no_success = 0  # This is success, so set to zero.
         else:
             gen_no_success += 1
 
         gen += 1
 
+    # Stop timer ga
+    ga_time = time.time() - ga_start_time
+    print(f"\nGenetic Algorithm took {ga_time:.2f} seconds to execute\n")
+
     # Store / report
-    debug(f"Local minima before post processing: {len(local_min)} \n")
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
 
+    # Connect to database and store results
+    db_file = os.path.join(os.path.dirname(__file__), c.db_file)
+    db = ase.db.connect(db_file)
     store_results_database(local_min[0], local_min[1:], db, c)
 
     # Show EPP plot if desired
-    if show_EPP:
+    if c.show_plot:
         plot_EPP(lowest_energies, highest_energies, average_energies, c.run_id)
 
     return 0
