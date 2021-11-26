@@ -24,13 +24,13 @@ import sys
 import inspect
 import numpy as np
 import yaml
-import os
 import matplotlib.pyplot as plt
 import ase.db
 import mutators
 import argparse
 import ase.db
 import pickle
+import time
 
 from ase import Atoms
 from ase.calculators.lj import LennardJones
@@ -391,6 +391,10 @@ def genetic_algorithm() -> None:
     highest_energies = []
     average_energies = []
 
+
+    # Start timing
+    ga_start_time = time.time()
+
     # =========================================================================
     # Initial population
     # =========================================================================
@@ -448,8 +452,11 @@ def genetic_algorithm() -> None:
 
         gen += 1
 
+    # Stop timer ga
+    ga_time = time.time() - ga_start_time
+    print(f"\nGenetic Algorithm took {ga_time:.2f} seconds to execute\n")
+
     # Store / report
-    debug(f"\nLocal minima before post processing: {len(local_min)} \n")
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
 
@@ -466,4 +473,6 @@ def genetic_algorithm() -> None:
 
 
 if __name__ == '__main__':
+    
     genetic_algorithm()
+    
