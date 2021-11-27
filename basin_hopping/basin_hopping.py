@@ -1,5 +1,6 @@
 
 import argparse
+import json
 import math
 import numpy as np
 from typing import Optional, Type
@@ -15,6 +16,8 @@ from ase.optimize import LBFGS
 from ase.optimize.optimize import Optimizer
 from ase.units import kB
 from ase.visualize import view
+
+from filter_results import filter_trajectory
 
 class DummyMPI:
     def __init__(self) -> None:
@@ -240,11 +243,11 @@ def main(**kwargs):
         return
 
     if size > 1: print(f"Starting basin hopping in rank {rank}")
-    atoms = BasinHopping.generate_initial_configuration(kwargs.get('cluster_size'), kwargs.get('radius', 1), kwargs.get('max_radius', None))
+    atoms = None if rank > 0 else BasinHopping.generate_initial_configuration(kwargs.get('cluster_size'), kwargs.get('radius', 1), kwargs.get('max_radius'))
     atoms = COMM.bcast(atoms)
     basin_hopping = BasinHopping(atoms, kwargs.get('temperature', 100*kB), kwargs.get('step_size', 0.5), kwargs.get('accept_rate', 0.5),
-                                 kwargs.get('step_size_factor', 0.9), kwargs.get('step_size_interval', 50), trajectory=kwargs.get('trajectory', None))
-    basin_hopping.run(kwargs.get('max_steps', 500), kwargs.get('stop_steps', None), kwargs.get('verbose', False))
+                                 kwargs.get('step_size_factor', 0.9), kwargs.get('step_size_interval', 50), trajectory=kwargs.get('trajectory'))
+    basin_hopping.run(kwargs.get('max_steps', 500), kwargs.get('stop_steps'), kwargs.get('verbose', False))
     if size > 1: print(f"Basin hopping completed in rank {rank}")
 
     if rank == 0:
@@ -254,6 +257,9 @@ def main(**kwargs):
         min_atoms.set_constraint()
         min_atoms.set_calculator(LennardJones())
         min_atoms.get_potential_energy()
+        # Filter local minima
+        if kwargs.get('trajectory') is not None:
+            filter_trajectory(kwargs.get('trajectory'), 1)
         # Update or write
         if kwargs.get('database') is not None:
             db = connect(kwargs.get('database'), type="db")
@@ -287,15 +293,20 @@ if __name__ == "__main__":
     parser.add_argument("--step-size-factor", type=float, default=0.9, help="The factor to multiply and divide the step size by")
     parser.add_argument("--step-size-interval", type=int, default=50, help="The interval for how often to update the step size")
     #
-    parser.add_argument("-tr", "--trajectory", default=None, help="Trajectory file for storing local minima")
     parser.add_argument("-db", "--database", default=None, help="Database file for storing global minima")
+    parser.add_argument("-tr", "--trajectory", default=None, help="Trajectory file for storing local minima")
     parser.add_argument("-v", "--verbose", action="store_true", help="Print information about each step")
 
     # Parse args
     args = parser.parse_args()
     # Load config file if some file was provided
     if args.config is not None:
-        config = yaml.load(open(args.config), Loader=yaml.FullLoader)
+        config = None
+        with open(args.config, 'r') as file:
+            if args.config.endswith('.yaml'):
+                config = yaml.load(file, Loader=yaml.FullLoader)
+            if args.config.endswith('.json'):
+                config = json.load(file)
         vars(args).update(config)
 
     main(**vars(args))
