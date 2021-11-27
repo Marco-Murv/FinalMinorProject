@@ -7,14 +7,14 @@ from typing import List
 from ase.atoms import Atoms
 from ase.io.trajectory import Trajectory
 
-def filter_local_minima(atoms: List[Atoms], significant_figures: int) -> npt.NDArray:
+def filter_significant_figures(atoms: List[Atoms], significant_figures: int) -> npt.NDArray:
     """
     Remove similar local minima from the list based on the relevant number significant figures of the potential energy.
 
     Parameters
     ----------
     atoms: List[Atoms]
-        All local minima found
+        List of all local minima found
     significant_figures: int
         Number of significant figures to round the potential energy to to find the unique local minima
     
@@ -51,7 +51,44 @@ def filter_local_minima(atoms: List[Atoms], significant_figures: int) -> npt.NDA
     
     return _atoms
 
-def filter_trajectory(input: str, significant_figures: int, output: str=None):
+def filter_difference(atoms: List[Atoms], difference: float) -> npt.NDArray:
+    """
+    Remove similar local minima from the list based on the minimum difference between the potential energy.
+
+    Parameters
+    ----------
+    atoms: List[Atoms]
+        List of all local minima found
+    difference: float
+        Minimum potential energy difference between unique local minima to check for uniqueness
+    
+    Returns
+    -------
+    atoms: ndarray
+        List of all unique local minima
+    """
+    # Sort atoms by ascending potential energy
+    atoms = sorted(atoms, key=lambda a: a.get_potential_energy())
+
+    # Always select first element
+    E = atoms[0].get_potential_energy()
+    new_atoms = list()
+    new_atoms.append(atoms[0])
+    # Append new elements if potential energy difference is greater than diff
+    for a in atoms[1:]:
+        if a.get_potential_energy() - E >= difference:
+            E = a.get_potential_energy()
+            new_atoms.append(a)
+        if a.get_potential_energy() > 0:
+            break
+
+    # Initialise atoms array first because ase.atoms.Atoms will be unpacked by numpy into an array of ase.atom.Atom
+    _atoms = np.empty(len(new_atoms), dtype=object)
+    _atoms[:] = new_atoms
+
+    return _atoms
+
+def filter_trajectory(input: str, output: str=None, filter_type: str="s", significant_figures: int=2, difference: float=0.1):
     """
     Remove similar local minima from a trajectory based on the relevant number significant figures of the potential energy.
 
@@ -59,18 +96,32 @@ def filter_trajectory(input: str, significant_figures: int, output: str=None):
     ----------
     input: str
         File path to the input trajectory
-    significant_figures: int
-        Number of significant figures to round the potential energy to to find the unique local minima
-    output: str, None (optional)
+    output: str, None, optional
         File path to the trajectory to store filtered local minima
         If None, the input file will be replaced by the new trajectory with filtered local minima
+    filter_type: {'s', 'd'}, optional
+        Which filter type to use:
+        - s : significant figures filter
+        - d : difference filter \n
+        (default = 's')
+    significant_figures: int, optional
+        Number of significant figures to round the potential energy to to find the unique local minima
+        (default = 2)
+    difference: float
+        Minimum potential energy difference between unique local minima to check for uniqueness
+        (default = 0.1)
     """
     if output is None:
         output = input
     # Load input trajectory
     trajectory = Trajectory(input)
     # Filter atoms
-    atoms = filter_local_minima(trajectory[:], significant_figures)
+    if filter_type == "s":
+        atoms = filter_significant_figures(trajectory[:], significant_figures)
+    elif filter_type == "d":
+        atoms = filter_difference(trajectory[:], difference)
+    else:
+        raise ValueError("Invalid value for filter_type")
     # Close trajectory
     trajectory.close()
 
@@ -83,12 +134,16 @@ def filter_trajectory(input: str, significant_figures: int, output: str=None):
     trajectory.close()
 
 def main(**kwargs):
-    filter_trajectory(kwargs.get('input'), kwargs.get('significant_figures', 2), kwargs.get('output', None))
+    filter_trajectory(kwargs.get('input'), kwargs.get('output', None), kwargs.get('filter_type', 's'), kwargs.get('significant_figures', 2), kwargs.get('difference', 0.1))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", type=str, required=True, help="Input file")
-    parser.add_argument("-s", "--significant-figures", type=int, default=2, help="Significant figures to round the potential energy to to check for uniqueness")
+    filter_types = parser.add_mutually_exclusive_group()
+    filter_types.add_argument("-fs", "--filter-significant-figures", action="store_const", dest="filter_type", const="s", default="s", help="Use significant figures filter")
+    filter_types.add_argument("-fd", "--filter-difference", action="store_const", dest="filter_type", const="d", help="Use difference filter")
+    parser.add_argument("-sf", "--significant-figures", type=int, default=2, help="Significant figures to round the potential energy to to check for uniqueness")
+    parser.add_argument("-d", "--difference", type=float, default=0.1, help="Minimum potential energy difference between unique local minima to check for uniqueness")
     parser.add_argument("-o", "--output", type=str, default=None, help="Output file (default = input file)")
 
     args = parser.parse_args()

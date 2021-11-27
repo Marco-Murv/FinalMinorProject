@@ -67,6 +67,18 @@
             "minimum": 1,
             "default": 50
         },
+        "filter_type": {
+            "type": ["string", "null"],
+            "enum": [null, "s", "d"],
+            "description": "Filter the found local minima\n null : no filter\n s : significant figures filter\n d : difference filter",
+            "default": "s"
+        },
+        "significant_figures": {
+            "type": "integer",
+            "description": "Significant figures to round the potential energy to to check for uniqueness",
+            "minimum": 1,
+            "default": 2
+        },
         "database": {
             "type": ["string", "null"],
             "description": "Database file for storing global minima",

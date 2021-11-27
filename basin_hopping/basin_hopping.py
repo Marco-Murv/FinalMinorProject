@@ -90,7 +90,7 @@ class BasinHopping:
                  step_size_factor: float=0.9,
                  step_size_interval: int=50,
                  optimizer: Type[Optimizer]=LBFGS,
-                 trajectory: str=None,
+                 trajectory: Optional[str]=None,
                  optimizer_logfile: Optional[str]=None) -> None:
         self.atoms = atoms
         self.optimizer = optimizer
@@ -258,8 +258,8 @@ def main(**kwargs):
         min_atoms.set_calculator(LennardJones())
         min_atoms.get_potential_energy()
         # Filter local minima
-        if kwargs.get('trajectory') is not None:
-            filter_trajectory(kwargs.get('trajectory'), 1)
+        if kwargs.get('filter_type', 's') is not None and kwargs.get('trajectory') is not None:
+            filter_trajectory(kwargs.get('trajectory'), kwargs.get('filter_type', 's'), kwargs.get('significant_figures', 2), kwargs.get('difference', 0.1))
         # Update or write
         if kwargs.get('database') is not None:
             db = connect(kwargs.get('database'), type="db")
@@ -271,9 +271,13 @@ def main(**kwargs):
             except:
                 db.write(min_atoms)
         # Display global minimum
-        view(min_atoms)
+        if kwargs.get('trajectory') is not None:
+            trajectory = Trajectory(kwargs.get('trajectory'))
+            view(trajectory)
+        else:
+            view(min_atoms)
+        
         print(f"Global minimum = {min_potential_energy}")
-        print(min_atoms.get_positions())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.")
@@ -293,6 +297,13 @@ if __name__ == "__main__":
     parser.add_argument("--step-size-factor", type=float, default=0.9, help="The factor to multiply and divide the step size by")
     parser.add_argument("--step-size-interval", type=int, default=50, help="The interval for how often to update the step size")
     #
+    filter_types = parser.add_mutually_exclusive_group()
+    filter_types.add_argument("-fn", "--no-filter", action="store_const", dest="filter_type", const=None, help="Use no filter")
+    filter_types.add_argument("-fs", "--filter-significant-figures", action="store_const", dest="filter_type", const="s", default="s", help="Use significant figures filter")
+    filter_types.add_argument("-fd", "--filter-difference", action="store_const", dest="filter_type", const="d", help="Use difference filter")
+    parser.add_argument("-sf", "--significant-figures", type=int, default=2, help="Significant figures to round the potential energy to to check for uniqueness")
+    parser.add_argument("-d", "--difference", type=float, default=0.1, help="Minimum potential energy difference between unique local minima to check for uniqueness")
+    #
     parser.add_argument("-db", "--database", default=None, help="Database file for storing global minima")
     parser.add_argument("-tr", "--trajectory", default=None, help="Trajectory file for storing local minima")
     parser.add_argument("-v", "--verbose", action="store_true", help="Print information about each step")
@@ -308,5 +319,5 @@ if __name__ == "__main__":
             if args.config.endswith('.json'):
                 config = json.load(file)
         vars(args).update(config)
-
+    # Run main
     main(**vars(args))
