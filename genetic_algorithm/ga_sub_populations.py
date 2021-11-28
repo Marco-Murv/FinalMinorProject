@@ -142,6 +142,7 @@ def ga_sub_populations():
     config_file = "run_config.yaml"
 
     # Parse possible terminal input and yaml file.
+    # TODO: Bcast config?
     c = get_configuration(config_file)  # TODO: prob make own get_config, leads to some complications using the GA one
     if rank == 0:
         config_info(c)
@@ -159,7 +160,15 @@ def ga_sub_populations():
     # Keep track of global minima. Initialised with random cluster
     best_min = pop[0]
     local_min = [pop[0]]
-    energies_min = np.array(pop[0].get_potential_energy())
+
+    # Number of generations until cluster exchange happens
+    exchange_gen = 10
+
+    # Number of cluster exchanges without new lowest minima until algorithm abortion
+    max_num_exchanges = 3
+    # TODO: implement system for aborting when this number is reached
+    # Send gen_no_success to rank 0, stores it in array with len(num_procs), if limit reached then abort algo
+    # special abort tag, non-blocking recv for each process, stop looping if a msg been received
 
     # =========================================================================
     # Main loop
@@ -169,15 +178,14 @@ def ga_sub_populations():
     gen_no_success = 0
 
     # Used for swapping random clusters between sub-populations
-
     send_req_left = None
     send_req_right = None
 
     # TODO: using max_gen as in normal GA may lead to errors with message passing when sub-population is stopped
-    while gen_no_success < c.max_no_success and gen < c.max_gen:
+    while gen < c.max_gen:
 
         # Exchange clusters with neighbouring processors
-        if (gen % 10) == 0:
+        if (gen % exchange_gen) == 0:
             # Exchange clusters with both neighbouring processors
             pop, energies, send_req_left, send_req_right = bi_directional_exchange(pop, sub_pop_size, gen, comm, rank,
                                                                                    send_req_left, send_req_right)
