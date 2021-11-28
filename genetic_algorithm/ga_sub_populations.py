@@ -14,10 +14,10 @@ import inspect
 import ase
 import numpy as np
 
-from genetic_algorithm import config_info, debug, fitness, generate_population
+from genetic_algorithm import config_info, debug, generate_population
 from genetic_algorithm import get_configuration, natural_selection_step
 from genetic_algorithm import optimise_local, fitness, get_mutants
-from genetic_algorithm import store_local_minima, store_results_database
+from genetic_algorithm import store_results_database
 from mating import mating
 from ga_distributed import flatten_list
 from mpi4py import MPI
@@ -142,7 +142,7 @@ def ga_sub_populations():
     config_file = "run_config.yaml"
 
     # Parse possible terminal input and yaml file.
-    c = get_configuration(config_file)
+    c = get_configuration(config_file)  # TODO: prob make own get_config, leads to some complications using the GA one
     if rank == 0:
         config_info(c)
 
@@ -156,7 +156,7 @@ def ga_sub_populations():
     energies = optimise_local(pop, c.calc, c.local_optimiser)
 
     # Keep track of global minima. Initialised with random cluster
-    best_min = [pop[0]]
+    best_min = pop[0]
     local_min = [pop[0]]
     energies_min = np.array(pop[0].get_potential_energy())
 
@@ -197,7 +197,7 @@ def ga_sub_populations():
         pop += newborns
 
         # Keep track of new local minima
-        local_min, energies_min = store_local_minima(newborns, energies, local_min, energies_min, c.dE_thr)
+        local_min += newborns
 
         # Natural selection
         pop, energies = natural_selection_step(pop, energies, sub_pop_size, c.dE_thr, c.fitness_func)
@@ -212,32 +212,26 @@ def ga_sub_populations():
 
         gen += 1
 
-    # Delete first values from best_min and local_min as these were initialised with a random cluster
-    best_min.pop(0)
+    # Delete first values from local_min as these were initialised with a random cluster
     local_min.pop(0)
 
     # =========================================================================
     # Combine all results and store them
     # =========================================================================
-    # Combine results
-    best_min = comm.gather(best_min, root=0)
     local_min = comm.gather(local_min, root=0)
 
     if rank == 0:
         debug("All results have been combined!")
-        best_min = flatten_list(best_min)
         local_min = flatten_list(local_min)
 
         # Filter minima
-        print(f"\n Local minima before post processing: {len(local_min)} \n")
         local_min = process_data.select_local_minima(local_min)
         process_data.print_stats(local_min)
 
         # Connect to database
-        db_file = "genetic_algorithm_results.db"
-        db_file = os.path.join(os.path.dirname(__file__), db_file)
+        db_file = os.path.join(os.path.dirname(__file__), c.db_file)
         db = ase.db.connect(db_file)
-        store_results_database(best_min[-1], local_min, db, c)
+        store_results_database(local_min[0], local_min, db, c)
 
     return 0
 
