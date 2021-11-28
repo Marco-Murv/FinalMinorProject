@@ -4,6 +4,13 @@
 Distributed parallelisation of the Genetic Algorithm
 """
 
+"""
+TODO:
+    * Solve cluster size problem -> mutators
+    * Fix population length problem
+    
+"""
+
 import os
 import sys
 import inspect
