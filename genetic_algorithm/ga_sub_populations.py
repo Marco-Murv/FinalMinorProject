@@ -145,6 +145,7 @@ def ga_sub_populations():
     c = get_configuration(config_file)  # TODO: prob make own get_config, leads to some complications using the GA one
     if rank == 0:
         config_info(c)
+        start_time = MPI.Wtime()
 
     # =========================================================================
     # Initial population and variables
@@ -176,7 +177,6 @@ def ga_sub_populations():
     while gen_no_success < c.max_no_success and gen < c.max_gen:
 
         # Exchange clusters with neighbouring processors
-        # TODO: proper criteria to start exchanges between all processors? Now it's just set to every 10th gen.
         if (gen % 10) == 0:
             # Exchange clusters with both neighbouring processors
             pop, energies, send_req_left, send_req_right = bi_directional_exchange(pop, sub_pop_size, gen, comm, rank,
@@ -200,12 +200,12 @@ def ga_sub_populations():
         local_min += newborns
 
         # Natural selection
-        pop, energies = natural_selection_step(pop, energies, sub_pop_size, c.dE_thr, c.fitness_func)
+        pop, energies = natural_selection_step(pop, energies, sub_pop_size, c.dE_thr)
 
         # Store current best
-        if energies[0] < best_min[-1].get_potential_energy():
+        if energies[0] < best_min.get_potential_energy():
             debug(f"Process {rank} in generation {gen}: new global minimum at {energies[0]}")
-            best_min.append(pop[0])
+            best_min = pop[0]
             gen_no_success = 0  # This is success, so set to zero.
         else:
             gen_no_success += 1
@@ -223,6 +223,9 @@ def ga_sub_populations():
     if rank == 0:
         debug("All results have been combined!")
         local_min = flatten_list(local_min)
+
+        total_time = MPI.Wtime() - start_time
+        print(f"\nExecution time for sub-population GA: {total_time}")
 
         # Filter minima
         local_min = process_data.select_local_minima(local_min)
