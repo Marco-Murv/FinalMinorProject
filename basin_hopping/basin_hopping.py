@@ -260,7 +260,7 @@ def main(**kwargs):
         min_atoms.get_potential_energy()
         # Filter local minima
         if kwargs.get('filter_type') is not None and kwargs.get('trajectory') is not None:
-            filter_trajectory(kwargs.get('trajectory'), kwargs.get('filtered-trajectory'), kwargs.get('filter_type'), kwargs.get('significant_figures', 2), kwargs.get('difference', 0.1))
+            filter_trajectory(kwargs.get('trajectory'), kwargs.get('filtered_trajectory'), kwargs.get('filter_type'), kwargs.get('significant_figures', 2), kwargs.get('difference', 0.1))
         # Update or write
         if kwargs.get('database') is not None:
             db = connect(kwargs.get('database'), type="db")
@@ -272,8 +272,8 @@ def main(**kwargs):
             except:
                 db.write(min_atoms)
         # Display global minimum
-        if kwargs.get('filter_type') is not None and kwargs.get('filtered-trajectory') is not None:
-            trajectory = Trajectory(kwargs.get('filtered-trajectory'))
+        if kwargs.get('filter_type') is not None and kwargs.get('filtered_trajectory') is not None:
+            trajectory = Trajectory(kwargs.get('filtered_trajectory'))
             view(trajectory)
         elif kwargs.get('trajectory') is not None:
             trajectory = Trajectory(kwargs.get('trajectory'))
