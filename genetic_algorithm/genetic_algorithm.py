@@ -214,6 +214,12 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
             invalid_indices.append(idx)
             debug("DIVIDE BY ZERO REMOVED FROM POPULATION!")
 
+        except Exception as e:
+            invalid_indices.append(idx)
+            debug(f"[ERROR]: CAUGHT EXCEPTION: {e}")
+            debug(f"\tREMOVED FROM POPULATION - FIX PROBLEM")
+
+
     return [cluster.get_potential_energy() for idx, cluster in enumerate(population) if idx not in invalid_indices]
 
 
@@ -425,6 +431,11 @@ def genetic_algorithm() -> None:
         # Mutating - get new mutants
         mutants = get_mutants(pop, c.cluster_radius, c.cluster_size)
 
+        print("TEMPORARY:")
+        print(f"\tPOP     : {[len(cluster.positions) for cluster in pop]}")
+        print(f"\tCHILDREN: {[len(cluster.positions) for cluster in children]}")
+        print(f"\tMUTANTS : {[len(cluster.positions) for cluster in mutants]}")
+
         # Local minimisation and add to population
         newborns = children + mutants
 
@@ -474,9 +485,4 @@ def genetic_algorithm() -> None:
 
 
 if __name__ == '__main__':
-    start = time.time()
     genetic_algorithm()
-    wt = time.time() - start
-
-    print(f"\nGenetic-algorithm took {wt} seconds to execute")
-
