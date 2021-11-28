@@ -1,3 +1,4 @@
+#!/usr/bin/python
 
 import argparse
 import json
@@ -271,7 +272,7 @@ def main(**kwargs):
             except:
                 db.write(min_atoms)
         # Display global minimum
-        if kwargs.get('filtered-trajectory') is not None:
+        if kwargs.get('filter_type') is not None and kwargs.get('filtered-trajectory') is not None:
             trajectory = Trajectory(kwargs.get('filtered-trajectory'))
             view(trajectory)
         elif kwargs.get('trajectory') is not None:
