@@ -76,11 +76,11 @@ def filter_difference(atoms: List[Atoms], difference: float) -> npt.NDArray:
     new_atoms.append(atoms[0])
     # Append new elements if potential energy difference is greater than diff
     for a in atoms[1:]:
-        if a.get_potential_energy() - E >= difference:
-            E = a.get_potential_energy()
+        potential_energy = a.get_potential_energy()
+        if potential_energy >= 0: break
+        if potential_energy - E >= difference:
+            E = potential_energy
             new_atoms.append(a)
-        if a.get_potential_energy() > 0:
-            break
 
     # Initialise atoms array first because ase.atoms.Atoms will be unpacked by numpy into an array of ase.atom.Atom
     _atoms = np.empty(len(new_atoms), dtype=object)

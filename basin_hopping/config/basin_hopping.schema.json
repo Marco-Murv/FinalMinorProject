@@ -89,6 +89,11 @@
             "description": "Trajectory file for storing local minima",
             "default": "./trajectory.traj"
         },
+        "filtered_trajectory": {
+            "type": ["string", "null"],
+            "description": "Trajectory file for storing filtered local minima. If null, filtered local minima are stored in the original",
+            "default": "./trajectory.o.traj"
+        },
         "verbose": {
             "type": "boolean",
             "description": "Print information about each step",
@@ -96,5 +101,19 @@
         }
     },
     "required": ["cluster_size"],
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "filter_type": {
+                        "enum": ["s", "d"]
+                    }
+                }
+            },
+            "then": {
+                "required": ["trajectory"]
+            }
+        }
+    ],
     "additionalProperties": false
 }
