@@ -201,10 +201,12 @@ def artificial_bee_colony_algorithm():
         population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius)
         optimise_local(population, p.calc, p.local_optimiser)
     else:
+        db = None
         population = None
         p = None
     population = comm.bcast(population, root=0)
     p = comm.bcast(p, root=0)
+    db = comm.bcast(db, root=0)
     comm.Barrier()
     start_time = time.time()
     show_calc_min = 5
@@ -225,7 +227,7 @@ def artificial_bee_colony_algorithm():
             comm.Barrier()
 
     print(start_time-time.time())
-    #store_results_database(population, db, p, p.cycle)
+    store_results_database(population, db, p, p.cycle)
 
 
 if __name__ == '__main__':
