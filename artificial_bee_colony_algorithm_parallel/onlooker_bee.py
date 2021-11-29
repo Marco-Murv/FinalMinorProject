@@ -22,9 +22,10 @@ def onlooker_bee_func(pop, pop_size, cluster_size, calc, local_optimiser):
 
 
 def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser):
+    # select random index
     selected_index = get_index(pop)
     random_index2 = random.sample(range(pop_size), 4)
-    f = randrange(10) / 100.0
+    f = randrange(1000) / 1000.0
     new_x = artificial_bee_colony_algorithm.optimise_local_each(
         artificial_bee_colony_algorithm.generate_cluster_with_position(pop[selected_index].get_positions() + f *
                                                                        (pop[random_index2[0]].get_positions() +
@@ -36,15 +37,16 @@ def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimis
                                                                        cluster_size), calc, local_optimiser)
     if new_x.get_potential_energy() <= pop[selected_index].get_potential_energy():
         pop[selected_index] = new_x
-    else:
-        #return search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser)
-        return pop
+    elif False:
+        # if it current index did not improved find other index to improve
+        return search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser)
+
     return pop
 
 
 def get_index(pop):
     random_n = randrange(10)
-    if random_n > 4:
+    if random_n > 2:
         return get_index_best(pop)
     else:
         return get_index_random(pop)
