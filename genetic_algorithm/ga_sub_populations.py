@@ -108,6 +108,8 @@ def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, s
 
     recv_req_left = comm.irecv(source=left_neighb, tag=1)
     recv_req_right = comm.irecv(source=right_neighb, tag=1)
+
+    # TODO: use test here with the abort msg request as well, or maybe use barrier with the abort check?
     left_clusters = recv_req_left.wait()
     right_clusters = recv_req_right.wait()
 
@@ -170,7 +172,10 @@ def ga_sub_populations():
     exchange_gen = 10
 
     # Number of cluster exchanges without new lowest minima until algorithm abortion
-    max_num_exchanges = 3
+    # Processor with rank 0 keeps track of this
+    if rank == 0:
+        max_num_exchanges = 3
+        no_success_processes = np.zeros((num_procs, 1), dtype=int)
 
     # TODO: implement system for aborting when this number is reached
     # Send gen_no_success to rank 0, stores it in array with len(num_procs), if limit reached then abort algo
@@ -182,16 +187,45 @@ def ga_sub_populations():
     # Keep track of iterations
     gen = 0
     gen_no_success = 0
+    gen_no_success_buffer = 0
 
     # Used for swapping random clusters between sub-populations
     send_req_left = None
     send_req_right = None
 
+    # Non-blocking recv message waiting for potential abortion message (tag = 0) from processor 0
+    abort = np.ones(1, dtype=int)
+    if rank != 0:
+        send_req_abort = None
+        comm.Irecv(abort, source=0, tag=0)
+
     # TODO: using max_gen as in normal GA may lead to errors with message passing when sub-population is stopped
     while gen < c.max_gen:
+        # Processor 0 check for stopping condition met or not and send abort msg if needed
+
+        # If algo abort condition is met, stop the loop
+        if abort[0] == 0:
+            break
 
         # Exchange clusters with neighbouring processors
         if (gen % exchange_gen) == 0:
+            # Send gen_no_success values to processor 0
+            if rank != 0:
+                if send_req_abort is not None:
+                    send_req_abort.wait()
+                print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
+                gen_no_success_buffer = np.array([gen_no_success], dtype=int)
+                send_req_abort = comm.Isend(gen_no_success_buffer, dest=0, tag=3)
+
+            else:  # Processor 0
+                print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
+                no_success_processes[0] = np.array(gen_no_success, dtype=int)
+                for i in range(1, num_procs):
+                    # TODO: possible to do it non-blocking while assuring correct synchronisation of the gen_no_succ?
+                    # Would non-blocking even make much difference? Have to wait in exchange function either way?
+                    comm.Recv(no_success_processes[i], source=i, tag=3)
+                print(f"\t\t Gen {gen} processor {rank} array: {no_success_processes}")
+
             # Exchange clusters with both neighbouring processors
             pop, energies, send_req_left, send_req_right = bi_directional_exchange(pop, sub_pop_size, gen, comm, rank,
                                                                                    send_req_left, send_req_right)
@@ -234,6 +268,7 @@ def ga_sub_populations():
     # =========================================================================
     local_min = comm.gather(local_min, root=0)
 
+    # TODO: nicer to make separate function for this
     if rank == 0:
         debug("All results have been combined!")
         local_min = flatten_list(local_min)
