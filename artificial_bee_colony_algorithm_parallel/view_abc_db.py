@@ -13,8 +13,9 @@ def show_db(db):
     print("-----------------------------------------------------------------------")
     for i in range(len(db)):
         row = db[i+1]
+
         print(f"|{row.id:3d} |{row.cluster_size:13d} |{row.pop_size:10d} |"
-              f"{row.potential_energy:8.3f}")
+              f"{row.potential_energy:8.7f}")
     print("----------------------------------------------------------------------")
 
 
