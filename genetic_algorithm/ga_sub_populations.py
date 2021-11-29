@@ -56,8 +56,8 @@ def one_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_right,
     # before exchanging a new group of clusters!
     if send_req_right is not None:
         send_req_right.wait()
-    send_req_right = comm.isend(right_msg, dest=right_neighb)
-    req_left = comm.irecv(source=left_neighb)
+    send_req_right = comm.isend(right_msg, dest=right_neighb, tag=1)
+    req_left = comm.irecv(source=left_neighb, tag=1)
     left_clusters = req_left.wait()
 
     debug(f"    Generation {gen}: processor {rank} finished all exchanges!")
@@ -101,11 +101,13 @@ def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, s
     if send_req_left is not None:
         send_req_left.wait()
         send_req_right.wait()
-    send_req_left = comm.isend(left_msg, dest=left_neighb)
-    send_req_right = comm.isend(right_msg, dest=right_neighb)
 
-    recv_req_left = comm.irecv(source=left_neighb)
-    recv_req_right = comm.irecv(source=right_neighb)
+    # Tag 1 is used for cluster exchange messages.
+    send_req_left = comm.isend(left_msg, dest=left_neighb, tag=1)
+    send_req_right = comm.isend(right_msg, dest=right_neighb, tag=1)
+
+    recv_req_left = comm.irecv(source=left_neighb, tag=1)
+    recv_req_right = comm.irecv(source=right_neighb, tag=1)
     left_clusters = recv_req_left.wait()
     right_clusters = recv_req_right.wait()
 
@@ -129,6 +131,9 @@ def ga_sub_populations():
     @return:
     """
 
+    # =========================================================================
+    # Algorithm setup
+    # =========================================================================
     # Raise real errors when numpy encounters a division by zero.
     np.seterr(divide='raise')
     # np.random.seed(241)
@@ -142,7 +147,7 @@ def ga_sub_populations():
     config_file = "run_config.yaml"
 
     # Parse possible terminal input and yaml file.
-    # TODO: Bcast config?
+    # TODO: Bcast config + random state?
     c = get_configuration(config_file)  # TODO: prob make own get_config, leads to some complications using the GA one
     if rank == 0:
         config_info(c)
@@ -166,6 +171,7 @@ def ga_sub_populations():
 
     # Number of cluster exchanges without new lowest minima until algorithm abortion
     max_num_exchanges = 3
+
     # TODO: implement system for aborting when this number is reached
     # Send gen_no_success to rank 0, stores it in array with len(num_procs), if limit reached then abort algo
     # special abort tag, non-blocking recv for each process, stop looping if a msg been received
