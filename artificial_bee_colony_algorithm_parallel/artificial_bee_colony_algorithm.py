@@ -47,6 +47,7 @@ def config_info(config):
     print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
     print(f"| {f'cluster size       : {config.cluster_size}':{n}s}|")
     print(f"| {f'Population size    : {config.pop_size}':{n}s}|")
+    print(f"| {f'Cycle              : {config.cycle}':{n}s}|")
 
     print(" ---------------------------------------------------------------- ")
 
@@ -90,7 +91,7 @@ def get_configuration(config_file):
     parser.add_argument('--cycle', type=int, metavar='',
                         help="size of cycle for the loop")
     parser.add_argument('--is_parallel', type=int, metavar='',
-                        help="size of cycle for the loop")
+                        help="run in parallel")
     p = parser.parse_args()
 
     c = Config()
@@ -182,52 +183,60 @@ def store_results_database(pop, db, c, cycle):
 
 
 def artificial_bee_colony_algorithm():
-    np.seterr(divide='raise')
+    setup_start_time = time.time()
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     total_p = comm.Get_size()
-    print(total_p)
     if rank == 0:
-        db_file = "artificial_bee_colony_algorithm_results.db"
-        config_file = 'run_config.yaml'
-        db_file = os.path.join(os.path.dirname(__file__), db_file)
-        db = ase.db.connect(db_file)
+        # configure db
+        db = ase.db.connect(os.path.join(os.path.dirname(__file__), "artificial_bee_colony_algorithm_results.db"))
         # Parse possible input, otherwise use default parameters
-        p = get_configuration(config_file)
+        p = get_configuration('run_config.yaml')
         config_info(p)
-        # Make local optimisation Optimiser and calculator
-
-        # Generate initial population and optimise locally
+        # generate initial population
         population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius)
         optimise_local(population, p.calc, p.local_optimiser)
+        # Generate initial population and optimise locally
     else:
         db = None
         population = None
         p = None
     population = comm.bcast(population, root=0)
     p = comm.bcast(p, root=0)
-    db = comm.bcast(db, root=0)
     comm.Barrier()
-    start_time = time.time()
-    show_calc_min = 5
+
+    show_calc_min = 1
+    eb_mutation_size = 3
+    if rank == 0:
+        debug(f"Set up took {time.time() - setup_start_time}")
+    cycle_start_time = time.time()
     for i in range(p.cycle):
 
-        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser, comm, rank, total_p, p.is_parallel)
+        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser,
+                                                    comm, rank, total_p, p.is_parallel, eb_mutation_size)
 
         if rank == 0:
-            population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser)
-            population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size,
-                                                     p.cluster_radius, p.calc, p.local_optimiser)
-            if (i%show_calc_min)==0:
+            population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc,
+                                                        p.local_optimiser)
+            # population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size,
+            #                                      p.cluster_radius, p.calc, p.local_optimiser)
+            if (i % show_calc_min) == 0:
                 debug(
                     f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
 
         if p.is_parallel == 1:
             population = comm.bcast(population, root=0)
             comm.Barrier()
+    if rank == 0:
+        if p.is_parallel == 1:
+            debug(f"It took {time.time() - cycle_start_time} with {total_p} processors")
+        else:
+            debug(f"It took {time.time() - cycle_start_time} without parallelization")
 
-    print(start_time-time.time())
-    store_results_database(population, db, p, p.cycle)
+    if rank == 0:
+        db_start_time = time.time()
+        store_results_database(population, db, p, p.cycle)
+        debug(f"Saving to db took {time.time() - db_start_time}")
 
 
 if __name__ == '__main__':
