@@ -183,7 +183,7 @@ def store_results_database(pop, db, c, cycle):
 
 
 def artificial_bee_colony_algorithm():
-    setup_start_time = time.time()
+    setup_start_time = MPI.Wtime()
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     total_p = comm.Get_size()
@@ -208,18 +208,18 @@ def artificial_bee_colony_algorithm():
     show_calc_min = 1
     eb_mutation_size = 3
     if rank == 0:
-        debug(f"Set up took {time.time() - setup_start_time}")
-    cycle_start_time = time.time()
+        debug(f"Set up took {MPI.Wtime() - setup_start_time}")
+    cycle_start_time = MPI.Wtime()
     for i in range(p.cycle):
-
+        i=i+1
         population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser,
                                                     comm, rank, total_p, p.is_parallel, eb_mutation_size)
 
         if rank == 0:
             population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc,
                                                         p.local_optimiser)
-            # population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size,
-            #                                      p.cluster_radius, p.calc, p.local_optimiser)
+            population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size,
+                                                 p.cluster_radius, p.calc, p.local_optimiser)
             if (i % show_calc_min) == 0:
                 debug(
                     f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
@@ -229,14 +229,14 @@ def artificial_bee_colony_algorithm():
             comm.Barrier()
     if rank == 0:
         if p.is_parallel == 1:
-            debug(f"It took {time.time() - cycle_start_time} with {total_p} processors")
+            debug(f"It took {MPI.Wtime() - cycle_start_time} with {total_p} processors")
         else:
-            debug(f"It took {time.time() - cycle_start_time} without parallelization")
+            debug(f"It took {MPI.Wtime()- cycle_start_time} without parallelization")
 
     if rank == 0:
-        db_start_time = time.time()
+        db_start_time = MPI.Wtime()
         store_results_database(population, db, p, p.cycle)
-        debug(f"Saving to db took {time.time() - db_start_time}")
+        debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
 
 
 if __name__ == '__main__':
