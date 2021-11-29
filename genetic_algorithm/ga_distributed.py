@@ -6,9 +6,7 @@ Distributed parallelisation of the Genetic Algorithm
 
 """
 TODO:
-    * Solve cluster size problem -> mutators
-    * Fix population length problem
-    
+
 """
 
 import os
@@ -109,7 +107,6 @@ def ga_distributed():
         # Define sub-populaiton on every rank (only for mutating)
         chunk = len(pop) // num_procs  # TODO:
         sub_pop = pop[rank * chunk:(rank + 1) * chunk] or pop[-2:]
-
 
         # Mutating - get new mutants
         mutants = get_mutants(sub_pop, c.cluster_radius, c.cluster_size)

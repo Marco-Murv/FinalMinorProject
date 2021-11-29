@@ -431,11 +431,6 @@ def genetic_algorithm() -> None:
         # Mutating - get new mutants
         mutants = get_mutants(pop, c.cluster_radius, c.cluster_size)
 
-        print("TEMPORARY:")
-        print(f"\tPOP     : {[len(cluster.positions) for cluster in pop]}")
-        print(f"\tCHILDREN: {[len(cluster.positions) for cluster in children]}")
-        print(f"\tMUTANTS : {[len(cluster.positions) for cluster in mutants]}")
-
         # Local minimisation and add to population
         newborns = children + mutants
 
