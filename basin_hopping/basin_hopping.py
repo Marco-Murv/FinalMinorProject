@@ -6,7 +6,7 @@ import math
 import numpy as np
 import os
 import sys
-from time import process_time
+from time import perf_counter
 from typing import Optional, Type
 import yaml
 
@@ -107,15 +107,13 @@ class BasinHopping:
         self.accept_rate = accept_rate
         self.step_size_factor = step_size_factor
         self.step_size_interval = step_size_interval
-        self.trajectory = None if trajectory is None else Trajectory(trajectory, 'w')
+        self.trajectory = trajectory
         self.optimizer_logfile = optimizer_logfile
         # Initialise
         self.nTotal = self.nAccept = 0
         self.min_potential_energy = self.atoms.get_potential_energy()
         self.old_potential_energy = self.min_potential_energy
         self.min_atoms = self.atoms.copy()
-        if self.trajectory is not None:
-            self.trajectory.write(self.atoms)
     
     def run(self, max_steps: int=500, stop_steps: Optional[int]=None, stop_time: Optional[int]=None, verbose: bool=False) -> None:
         """
@@ -136,7 +134,11 @@ class BasinHopping:
         """
         rank = COMM.Get_rank()
         stop_step_count = 0
-        t0 = process_time()
+        t0 = perf_counter()
+        # Initialise trajectory
+        trajectory = None if rank != 0 or self.trajectory is None else Trajectory(self.trajectory, 'w')
+        if trajectory is not None:
+            trajectory.write(self.atoms)
 
         if verbose and rank == 0: print("{:s} {:>5s} {:>16s} {:>8s}".format(" "*13, "Step", "Energy", "Accept"))
         for i in range(max_steps):
@@ -167,21 +169,22 @@ class BasinHopping:
             # Log step
             if verbose and rank == 0: print(f"BasinHopping: {i:5d} {new_potential_energy:15.6f}* {str(accept):>8s}")
             # Write to trajectory
-            if self.trajectory is not None and rank == 0:
+            if trajectory is not None:
                 for x in atoms:
                     if not math.isnan(x.get_potential_energy()):
-                        self.trajectory.write(x)
+                        trajectory.write(x)
             # Set values for next step
             if accept:
                 self.old_potential_energy = new_potential_energy
             else:
                 self.atoms.set_positions(old_positions)
             # Stop condition
-            stop = (stop_steps is not None and stop_step_count >= stop_steps) or (stop_time is not None and process_time() - t0 >= stop_time)
+            stop = (stop_steps is not None and stop_step_count >= stop_steps) or (stop_time is not None and perf_counter() - t0 >= stop_time)
             stop = COMM.bcast(stop)
             if stop: break
         
         if verbose and rank == 0: print(f"Stopped at iteration {i}.")
+        trajectory.close()
     
     def displace_atoms(self) -> None:
         dX = np.random.uniform(-self.step_size, self.step_size, (len(self.atoms), 3))
