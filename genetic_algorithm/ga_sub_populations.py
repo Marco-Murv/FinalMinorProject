@@ -14,6 +14,7 @@ import inspect
 import ase
 import numpy as np
 
+from ase.io import Trajectory
 from genetic_algorithm import config_info, debug, generate_population
 from genetic_algorithm import get_configuration, natural_selection_step
 from genetic_algorithm import optimise_local, fitness, get_mutants
@@ -155,7 +156,6 @@ def ga_sub_populations():
         config_info(c)
 
     # Ensure all processors have exactly the same starting time for properly synchronising the maximum durations
-    max_time = 10
     start_time = MPI.Wtime()
     start_time = comm.bcast(start_time, root=0)
 
@@ -204,7 +204,7 @@ def ga_sub_populations():
         comm.Irecv(abort, source=0, tag=0)
 
     # TODO: using max_gen as in normal GA may lead to errors with message passing when sub-population is stopped
-    while gen < c.max_gen and (MPI.Wtime() - start_time) < max_time:
+    while gen < c.max_gen and (MPI.Wtime() - start_time) < c.time_lim:
         # Processor 0 check for stopping condition met or not and send abort msg if needed
 
         # If algo abort condition is met, stop the loop
@@ -233,7 +233,7 @@ def ga_sub_populations():
 
             # Synchronise all processors before communication to make sure they all abort simultaneously before comms
             comm.Barrier()
-            if (MPI.Wtime() - start_time) > max_time:
+            if (MPI.Wtime() - start_time) > c.time_lim:
                 break
 
             # Exchange clusters with both neighbouring processors
@@ -285,6 +285,12 @@ def ga_sub_populations():
 
         total_time = MPI.Wtime() - start_time
         print(f"\nExecution time for sub-population GA: {total_time}")
+
+        # Write all local minima to trajectory file
+        traj_file = Trajectory(f"ga_{c.cluster_size}.traj", 'w')
+        for cluster in local_min:
+            traj_file.write(cluster)
+        traj_file.close()
 
         # Filter minima
         local_min = process_data.select_local_minima(local_min)
