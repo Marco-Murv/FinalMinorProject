@@ -33,6 +33,7 @@ import pickle
 import time
 
 from ase import Atoms
+from ase.io.trajectory import Trajectory
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
 from typing import List
@@ -45,6 +46,7 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 import process_data
+
 
 
 def debug(*args, **kwargs) -> None:
@@ -90,6 +92,7 @@ class Config:
     reuse_state: bool = None
     show_plot: bool = None
     db_file: str = None
+    time_lim: float = None
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
 
@@ -137,6 +140,8 @@ def get_configuration(config_file):
                         help="The database file to write results to")
     parser.add_argument('--run_id', type=int, metavar='',
                         help="ID for the current run. Increments automatically")
+    parser.add_argument('--time_lim', type=float, metavar='',
+                        help="Time limit for the algorithm")
 
     p = parser.parse_args()
 
@@ -155,6 +160,7 @@ def get_configuration(config_file):
     c.show_plot = p.show_plot or yaml_conf['show_plot']
     c.db_file = p.db_file or yaml_conf['db_file']
     c.run_id = p.run_id or yaml_conf['run_id']
+    c.time_lim = p.time_lim or yaml_conf['time_lim']
 
     # Increment run_id for next run
     yaml_conf['run_id'] += 1
@@ -422,6 +428,10 @@ def genetic_algorithm() -> None:
     gen_no_success = 0
 
     while gen_no_success < c.max_no_success and gen < c.max_gen:
+        if time.time() - ga_start_time > c.time_lim:
+            debug("REACHED TIME LIMIT")
+            break
+
         debug(f"Generation {gen:2d} - Population size = {len(pop)}")
 
         # Get fitness values
@@ -462,6 +472,11 @@ def genetic_algorithm() -> None:
     # Stop timer ga
     ga_time = time.time() - ga_start_time
     print(f"\nGenetic Algorithm took {ga_time:.2f} seconds to execute\n")
+
+    trajFile = Trajectory(f"ga_{c.cluster_size}.traj", 'w')
+    for cluster in local_min:
+        trajFile.write(cluster)
+    trajFile.close()
 
     # Store / report
     local_min = process_data.select_local_minima(local_min)
