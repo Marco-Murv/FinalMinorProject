@@ -89,7 +89,7 @@ def single_rotation(cluster):
 
     coords = np.array(cluster.get_positions())
     median_z = np.median(coords[:, 2])
-    top_half = coords[coords[:, 2] > median_z, :]
+    top_half = coords[coords[:, 2] >= median_z, :]
     bottom_half = coords[coords[:, 2] < median_z, :]
 
     cluster_type = cluster[0].symbol
