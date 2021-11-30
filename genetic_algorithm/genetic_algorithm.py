@@ -473,14 +473,15 @@ def genetic_algorithm() -> None:
     ga_time = time.time() - ga_start_time
     print(f"\nGenetic Algorithm took {ga_time:.2f} seconds to execute\n")
 
-    trajFile = Trajectory(f"ga_{c.cluster_size}.traj", 'w')
-    for cluster in local_min:
-        trajFile.write(cluster)
-    trajFile.close()
 
     # Store / report
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
+
+    trajFile = Trajectory(f"ga_{c.cluster_size}.traj", 'w')
+    for cluster in local_min:
+        trajFile.write(cluster)
+    trajFile.close()
 
     # Connect to database and store results
     db_file = os.path.join(os.path.dirname(__file__), c.db_file)
