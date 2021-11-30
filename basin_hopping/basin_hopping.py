@@ -18,7 +18,7 @@ from ase.optimize.optimize import Optimizer
 from ase.units import kB
 from ase.visualize import view
 
-from filter_results import filter_trajectory
+from ..filter_results import filter_trajectory
 
 class DummyMPI:
     def __init__(self) -> None:
@@ -319,7 +319,7 @@ if __name__ == "__main__":
     if args.config is not None:
         config = None
         with open(args.config, 'r') as file:
-            if args.config.endswith('.yaml'):
+            if args.config.endswith(('.yaml', '.yml')):
                 config = yaml.load(file, Loader=yaml.FullLoader)
             if args.config.endswith('.json'):
                 config = json.load(file)
