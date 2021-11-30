@@ -221,8 +221,13 @@ def artificial_bee_colony_algorithm():
             population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size,
                                                  p.cluster_radius, p.calc, p.local_optimiser)
             if (i % show_calc_min) == 0:
-                debug(
-                    f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
+                # prints out all the different local minima that differ n decimals. If you want to change the accuracy of comparing, change decimals=...
+                rounded = np.around([cluster.get_potential_energy() for cluster in population], decimals=3)
+                array, indices = np.unique(rounded, return_index=True)
+                debug(f"Local optimisations at loop {i}:{[population[i].get_potential_energy() for i in indices]}")
+
+                debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
+
 
         if p.is_parallel == 1:
             population = comm.bcast(population, root=0)
