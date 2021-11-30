@@ -153,7 +153,11 @@ def ga_sub_populations():
     c = get_configuration(config_file)  # TODO: prob make own get_config, leads to some complications using the GA one
     if rank == 0:
         config_info(c)
-        start_time = MPI.Wtime()
+
+    # Ensure all processors have exactly the same starting time for properly synchronising the maximum durations
+    max_time = 10
+    start_time = MPI.Wtime()
+    start_time = comm.bcast(start_time, root=0)
 
     # =========================================================================
     # Initial population and variables
@@ -196,15 +200,16 @@ def ga_sub_populations():
     # Non-blocking recv message waiting for potential abortion message (tag = 0) from processor 0
     abort = np.ones(1, dtype=int)
     if rank != 0:
-        send_req_abort = None
+        send_req_abort = None  # Rename this prob
         comm.Irecv(abort, source=0, tag=0)
 
     # TODO: using max_gen as in normal GA may lead to errors with message passing when sub-population is stopped
-    while gen < c.max_gen:
+    while gen < c.max_gen and (MPI.Wtime() - start_time) < max_time:
         # Processor 0 check for stopping condition met or not and send abort msg if needed
 
         # If algo abort condition is met, stop the loop
         if abort[0] == 0:
+            print(f"Processor {rank} aborted!")
             break
 
         # Exchange clusters with neighbouring processors
@@ -225,6 +230,11 @@ def ga_sub_populations():
                     # Would non-blocking even make much difference? Have to wait in exchange function either way?
                     comm.Recv(no_success_processes[i], source=i, tag=3)
                 print(f"\t\t Gen {gen} processor {rank} array: {no_success_processes}")
+
+            # Synchronise all processors before communication to make sure they all abort simultaneously before comms
+            comm.Barrier()
+            if (MPI.Wtime() - start_time) > max_time:
+                break
 
             # Exchange clusters with both neighbouring processors
             pop, energies, send_req_left, send_req_right = bi_directional_exchange(pop, sub_pop_size, gen, comm, rank,
