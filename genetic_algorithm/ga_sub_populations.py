@@ -11,6 +11,8 @@ diversity.
 import os
 import sys
 import inspect
+import time
+
 import ase
 import numpy as np
 
@@ -85,6 +87,8 @@ def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, s
     @param perc_pop_exchanged: percentage of the sub-population that should be exchanged with each neighbour
     @return: population with the newly received clusters and corresponding energies
     """
+
+    print(f"\tGen {gen} processor {rank} starting comms!")
 
     # Number of clusters to be exchanged with a single neighbour.
     num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int) * 2  # TODO: how many to swap?
@@ -178,7 +182,7 @@ def ga_sub_populations():
     # Number of cluster exchanges without new lowest minima until algorithm abortion
     # Processor with rank 0 keeps track of this
     if rank == 0:
-        max_num_exchanges = 3
+        max_num_exchanges = 5
         no_success_processes = np.zeros((num_procs, 1), dtype=int)
 
     # TODO: implement system for aborting when this number is reached
@@ -204,7 +208,7 @@ def ga_sub_populations():
         comm.Irecv(abort, source=0, tag=0)
 
     # TODO: using max_gen as in normal GA may lead to errors with message passing when sub-population is stopped
-    while gen < c.max_gen and (MPI.Wtime() - start_time) < c.time_lim:
+    while gen < c.max_gen:
         # Processor 0 check for stopping condition met or not and send abort msg if needed
 
         # If algo abort condition is met, stop the loop
@@ -212,29 +216,38 @@ def ga_sub_populations():
             print(f"Processor {rank} aborted!")
             break
 
+        if (MPI.Wtime() - start_time) > c.time_lim:
+            print(f"\t\t\tGen {gen} processor {rank} reached time lim!")
+            break
+
         # Exchange clusters with neighbouring processors
         if (gen % exchange_gen) == 0:
             # Send gen_no_success values to processor 0
-            if rank != 0:
-                if send_req_abort is not None:
-                    send_req_abort.wait()
-                print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
-                gen_no_success_buffer = np.array([gen_no_success], dtype=int)
-                send_req_abort = comm.Isend(gen_no_success_buffer, dest=0, tag=3)
-
-            else:  # Processor 0
-                print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
-                no_success_processes[0] = np.array(gen_no_success, dtype=int)
-                for i in range(1, num_procs):
-                    # TODO: possible to do it non-blocking while assuring correct synchronisation of the gen_no_succ?
-                    # Would non-blocking even make much difference? Have to wait in exchange function either way?
-                    comm.Recv(no_success_processes[i], source=i, tag=3)
-                print(f"\t\t Gen {gen} processor {rank} array: {no_success_processes}")
+            # if rank != 0:
+            #     if send_req_abort is not None:
+            #         send_req_abort.wait()
+            #     print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
+            #     gen_no_success_buffer = np.array([gen_no_success], dtype=int)
+            #     send_req_abort = comm.Isend(gen_no_success_buffer, dest=0, tag=3)
+            #
+            # else:  # Processor 0
+            #     print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
+            #     no_success_processes[0] = np.array(gen_no_success, dtype=int)
+            #     for i in range(1, num_procs):
+            #         # TODO: possible to do it non-blocking while assuring correct synchronisation of the gen_no_succ?
+            #         # Would non-blocking even make much difference? Have to wait in exchange function either way?
+            #         comm.Recv(no_success_processes[i], source=i, tag=3)
+            #     print(f"\t\t Gen {gen} processor {rank} array: {no_success_processes}")
 
             # Synchronise all processors before communication to make sure they all abort simultaneously before comms
-            comm.Barrier()
-            if (MPI.Wtime() - start_time) > c.time_lim:
-                break
+            print(f"\tGen {gen} processor {rank} waiting at barrier!")
+            req_barr = comm.Ibarrier()
+            while not req_barr.get_status():
+                if (MPI.Wtime() - start_time) > c.time_lim:
+                    print(f"\tProcessor {rank} aborting!")
+                    break
+
+            print(f"\tGen {gen} processor {rank} passed  barrier!")
 
             # Exchange clusters with both neighbouring processors
             pop, energies, send_req_left, send_req_right = bi_directional_exchange(pop, sub_pop_size, gen, comm, rank,
@@ -286,15 +299,15 @@ def ga_sub_populations():
         total_time = MPI.Wtime() - start_time
         print(f"\nExecution time for sub-population GA: {total_time}")
 
-        # Write all local minima to trajectory file
-        traj_file = Trajectory(f"ga_{c.cluster_size}.traj", 'w')
-        for cluster in local_min:
-            traj_file.write(cluster)
-        traj_file.close()
-
         # Filter minima
         local_min = process_data.select_local_minima(local_min)
         process_data.print_stats(local_min)
+
+        # Write all local minima to trajectory file
+        traj_file = Trajectory(f"ga_sub_pop_{c.cluster_size}.traj", 'w')
+        for cluster in local_min:
+            traj_file.write(cluster)
+        traj_file.close()
 
         # Connect to database
         db_file = os.path.join(os.path.dirname(__file__), c.db_file)
