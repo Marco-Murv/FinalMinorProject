@@ -151,7 +151,7 @@ class BasinHopping:
             new_potential_energy = self.get_potential_energy()
             # Gather results
             atoms = COMM.gather(self.atoms)
-            min_atoms = None if atoms is None else atoms[np.argmin([atom.get_potential_energy() for atom in atoms])]
+            min_atoms = None if atoms is None else atoms[np.nanargmin([atom.get_potential_energy() for atom in atoms])]
             self.atoms = COMM.bcast(min_atoms)
             # Update potential energy
             new_potential_energy = self.atoms.get_potential_energy()
@@ -187,10 +187,12 @@ class BasinHopping:
             if stop: break
         
         if verbose and rank == 0:
-            t = perf_counter()
+            t = perf_counter() - t0
             print(f"Stopped at iteration {i}")
             print(f"Time elapsed: {int(t/60%60):>2d}:{t%60:06.3f}")
-        trajectory.close()
+
+        if trajectory is not None:
+            trajectory.close()
     
     def displace_atoms(self) -> None:
         dX = np.random.uniform(-self.step_size, self.step_size, (len(self.atoms), 3))
@@ -200,7 +202,7 @@ class BasinHopping:
         # Ignore divide by zero errors
         with np.errstate(divide='ignore', invalid='ignore'):
             self.optimizer(self.atoms, logfile=self.optimizer_logfile).run(steps=50)
-            return self.atoms.get_potential_energy() or 1.e23
+            return self.atoms.get_potential_energy()
     
     def accept(self, old_potential_energy: float, new_potential_energy: float) -> bool:
         """Metropolis acceptance criterion. \n
