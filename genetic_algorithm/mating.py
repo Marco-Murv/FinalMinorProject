@@ -26,6 +26,10 @@ def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
     :returns: child-> Offspring cluster
 
     """
+    if len(parent1.positions) != len(parent2.positions):
+        print("ERROR: PARENTS DIFFERENT SIZE")
+        print(f"\t{len(parent1.positions)}")
+        print(f"\t{len(parent2.positions)}")
 
     cluster_size = len(parent1.positions)
 
@@ -54,6 +58,7 @@ def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
     elif len(coords) > cluster_size:
         print("PROBLEM IN make_child: too many atoms in the child.")
         return None
+
 
     child = Atoms('H'+str(len(coords)), coords)
     return child
