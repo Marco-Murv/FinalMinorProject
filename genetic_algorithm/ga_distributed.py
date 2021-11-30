@@ -46,6 +46,7 @@ def ga_distributed():
     """
     Main genetic algorithm (distributed)
     """
+
     np.seterr(divide='raise')
 
     # Initialising MPI
@@ -53,11 +54,12 @@ def ga_distributed():
     rank = comm.Get_rank()
     num_procs = comm.Get_size()
 
-    # File to get default configuration / run information
-    config_file = "run_config.yaml"
-
     # Parse possible terminal input and yaml file.
-    c = get_configuration(config_file)
+    c = None
+    if rank == 0:
+        c = get_configuration("run_config.yaml")
+
+    c = comm.bcast(c, root=0)
 
     # Start timer
     if rank == 0:
@@ -103,13 +105,15 @@ def ga_distributed():
         pop_fitness = fitness(energies, c.fitness_func)
         children = mating(pop, pop_fitness, c.children_perc /
                           num_procs, c.mating_method)
-
+        
         # Define sub-populaiton on every rank (only for mutating)
         chunk = len(pop) // num_procs  # TODO:
-        sub_pop = pop[rank * chunk:(rank + 1) * chunk] or pop[-2:]
+        sub_pop = pop[rank * chunk:(rank + 1) * chunk]
 
         # Mutating - get new mutants
-        mutants = get_mutants(sub_pop, c.cluster_radius, c.cluster_size)
+        mutants = []
+        if len(sub_pop) >= 2:
+            mutants = get_mutants(sub_pop, c.cluster_radius, c.cluster_size)
 
         # Local minimisation and add to population
         newborns = children + mutants
