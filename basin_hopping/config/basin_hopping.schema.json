@@ -37,6 +37,12 @@
             "minimum": 1,
             "default": 100
         },
+        "stop_time": {
+            "type": ["integer", "null"],
+            "description": "The maximum amount of time, in seconds, the algorithm will run for before stopping. If not set, the algorithm will run for the maximum number of steps",
+            "minimum": 1,
+            "default": 100
+        },
         "temperature": {
             "type": "number",
             "description": "The temperature parameter for the Metropolis acceptance criterion",

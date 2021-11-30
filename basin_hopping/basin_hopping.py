@@ -4,6 +4,9 @@ import argparse
 import json
 import math
 import numpy as np
+import os
+import sys
+from time import process_time
 from typing import Optional, Type
 import yaml
 
@@ -18,7 +21,11 @@ from ase.optimize.optimize import Optimizer
 from ase.units import kB
 from ase.visualize import view
 
-from ..filter_results import filter_trajectory
+currentdir = os.path.dirname(os.path.abspath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
+
+from filter_results import filter_trajectory
 
 class DummyMPI:
     def __init__(self) -> None:
@@ -110,7 +117,7 @@ class BasinHopping:
         if self.trajectory is not None:
             self.trajectory.write(self.atoms)
     
-    def run(self, max_steps: int=500, stop_steps: Optional[int]=None, verbose: bool=False) -> None:
+    def run(self, max_steps: int=500, stop_steps: Optional[int]=None, stop_time: Optional[int]=None, verbose: bool=False) -> None:
         """
         Run the basin hopping algorithm.
 
@@ -121,11 +128,16 @@ class BasinHopping:
         stop_steps: int, None, optional
             The number of steps, without there being a new minimum, the algorithm will take before stopping.
             If None (default), the algorithm will run for the maximum number of steps.
+        stop_time: int, None, optional
+            The maximum amount of time, in seconds, the algorithm will run for before stopping.
+            If None (default), the algorithm will run for the maximum number of steps.
         verbose: bool, optional
             Print information about each step.
         """
         rank = COMM.Get_rank()
         stop_step_count = 0
+        t0 = process_time()
+
         if verbose and rank == 0: print("{:s} {:>5s} {:>16s} {:>8s}".format(" "*13, "Step", "Energy", "Accept"))
         for i in range(max_steps):
             old_positions = self.atoms.get_positions()
@@ -157,14 +169,17 @@ class BasinHopping:
             # Write to trajectory
             if self.trajectory is not None and rank == 0:
                 for x in atoms:
-                    self.trajectory.write(x)
+                    if not math.isnan(x.get_potential_energy()):
+                        self.trajectory.write(x)
             # Set values for next step
             if accept:
                 self.old_potential_energy = new_potential_energy
             else:
                 self.atoms.set_positions(old_positions)
             # Stop condition
-            if stop_steps is not None and stop_step_count >= stop_steps: break
+            stop = (stop_steps is not None and stop_step_count >= stop_steps) or (stop_time is not None and process_time() - t0 >= stop_time)
+            stop = COMM.bcast(stop)
+            if stop: break
         
         if verbose and rank == 0: print(f"Stopped at iteration {i}.")
     
@@ -248,7 +263,7 @@ def main(**kwargs):
     atoms = COMM.bcast(atoms)
     basin_hopping = BasinHopping(atoms, kwargs.get('temperature', 100*kB), kwargs.get('step_size', 0.5), kwargs.get('accept_rate', 0.5),
                                  kwargs.get('step_size_factor', 0.9), kwargs.get('step_size_interval', 50), trajectory=kwargs.get('trajectory'))
-    basin_hopping.run(kwargs.get('max_steps', 500), kwargs.get('stop_steps'), kwargs.get('verbose', False))
+    basin_hopping.run(kwargs.get('max_steps', 500), kwargs.get('stop_steps'), kwargs.get('stop_time'), kwargs.get('verbose', False))
     if size > 1: print(f"Basin hopping completed in rank {rank}")
 
     if rank == 0:
@@ -293,7 +308,8 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--max-radius", type=float, default=None, help="The maximum radius of the cube to constrain the atoms in. If not set, no constraint is placed on the atoms")
     #
     parser.add_argument("-m", "--max-steps", type=int, default=500, help="The maximum number of steps the algorithm will take")
-    parser.add_argument("-s", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
+    parser.add_argument("-ss", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
+    parser.add_argument("-st", "--stop-time", type=int, default=None, help="The maximum amount of time, in seconds, the algorithm will run for before stopping. If not set, the algorithm will run for the maximum number of steps")
     #
     parser.add_argument("--temperature", type=float, default=100*kB, help="The temperature parameter for the Metropolis acceptance criterion")
     parser.add_argument("--step-size", type=float, default=0.5, help="The initial value of the step size")
