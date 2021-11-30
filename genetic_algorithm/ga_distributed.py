@@ -18,6 +18,7 @@ parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
 import ase
+from ase.io.trajectory import Trajectory
 
 import process_data
 import genetic_algorithm as ga
