@@ -143,7 +143,7 @@ def ga_sub_populations():
     # =========================================================================
     # Raise real errors when numpy encounters a division by zero.
     np.seterr(divide='raise')
-    # np.random.seed(241)
+    # np.random.seed(2543632)
 
     # Initialising MPI
     comm = MPI.COMM_WORLD
@@ -211,43 +211,41 @@ def ga_sub_populations():
     while gen < c.max_gen:
         # Processor 0 check for stopping condition met or not and send abort msg if needed
 
-        # If algo abort condition is met, stop the loop
+        # If algo abort condition is met, set stopping condition to true
+        if (MPI.Wtime() - start_time) > c.time_lim:
+            print(f"\t\t\tGen {gen} processor {rank} reached time lim!")
+            abort[0] = 0
+
         if abort[0] == 0:
             print(f"Processor {rank} aborted!")
             break
 
-        if (MPI.Wtime() - start_time) > c.time_lim:
-            print(f"\t\t\tGen {gen} processor {rank} reached time lim!")
-            break
-
         # Exchange clusters with neighbouring processors
         if (gen % exchange_gen) == 0:
-            # Send gen_no_success values to processor 0
-            # if rank != 0:
-            #     if send_req_abort is not None:
-            #         send_req_abort.wait()
-            #     print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
-            #     gen_no_success_buffer = np.array([gen_no_success], dtype=int)
-            #     send_req_abort = comm.Isend(gen_no_success_buffer, dest=0, tag=3)
-            #
-            # else:  # Processor 0
-            #     print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
-            #     no_success_processes[0] = np.array(gen_no_success, dtype=int)
-            #     for i in range(1, num_procs):
-            #         # TODO: possible to do it non-blocking while assuring correct synchronisation of the gen_no_succ?
-            #         # Would non-blocking even make much difference? Have to wait in exchange function either way?
-            #         comm.Recv(no_success_processes[i], source=i, tag=3)
-            #     print(f"\t\t Gen {gen} processor {rank} array: {no_success_processes}")
-
             # Synchronise all processors before communication to make sure they all abort simultaneously before comms
-            print(f"\tGen {gen} processor {rank} waiting at barrier!")
             req_barr = comm.Ibarrier()
             while not req_barr.get_status():
                 if (MPI.Wtime() - start_time) > c.time_lim:
-                    print(f"\tProcessor {rank} aborting!")
+                    abort[0] = 0
                     break
+                time.sleep(0.001)
+            if abort[0] == 0:
+                break
 
-            print(f"\tGen {gen} processor {rank} passed  barrier!")
+            # Send gen_no_success values to processor 0
+            if rank != 0:
+                if send_req_abort is not None:
+                    send_req_abort.wait()
+                # print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
+                gen_no_success_buffer = np.array([gen_no_success], dtype=int)
+                send_req_abort = comm.Isend(gen_no_success_buffer, dest=0, tag=3)
+
+            else:  # Processor 0
+                # print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
+                no_success_processes[0] = np.array(gen_no_success, dtype=int)
+                for i in range(1, num_procs):
+                    comm.Recv(no_success_processes[i], source=i, tag=3)
+                # print(f"\t\t Gen {gen} processor {rank} array: {no_success_processes}")
 
             # Exchange clusters with both neighbouring processors
             pop, energies, send_req_left, send_req_right = bi_directional_exchange(pop, sub_pop_size, gen, comm, rank,
