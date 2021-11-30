@@ -140,7 +140,9 @@ class BasinHopping:
         if trajectory is not None:
             trajectory.write(self.atoms)
 
-        if verbose and rank == 0: print("{:s} {:>5s} {:>16s} {:>8s}".format(" "*13, "Step", "Energy", "Accept"))
+        if verbose and rank == 0:
+            print("{:s} {:>5s} {:^16s} {:^10s}".format(" "*13, "Step", "Energy", "Time"))
+        
         for i in range(max_steps):
             old_positions = self.atoms.get_positions()
             # Displace atoms
@@ -167,7 +169,8 @@ class BasinHopping:
             self.nTotal += 1
             if self.nTotal % self.step_size_interval: self.adjust_step_size()
             # Log step
-            if verbose and rank == 0: print(f"BasinHopping: {i:5d} {new_potential_energy:15.6f}* {str(accept):>8s}")
+            t = perf_counter() - t0
+            if verbose and rank == 0: print(f"BasinHopping: {i:5d} {new_potential_energy:15.6f}* {int(t/60%60):>2d}:{t%60:06.3f}")
             # Write to trajectory
             if trajectory is not None:
                 for x in atoms:
@@ -183,7 +186,10 @@ class BasinHopping:
             stop = COMM.bcast(stop)
             if stop: break
         
-        if verbose and rank == 0: print(f"Stopped at iteration {i}.")
+        if verbose and rank == 0:
+            t = perf_counter()
+            print(f"Stopped at iteration {i}")
+            print(f"Time elapsed: {int(t/60%60):>2d}:{t%60:06.3f}")
         trajectory.close()
     
     def displace_atoms(self) -> None:
