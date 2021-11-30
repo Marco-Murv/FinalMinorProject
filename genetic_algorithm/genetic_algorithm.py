@@ -40,6 +40,7 @@ from typing import List
 from mating import mating
 from datetime import datetime as dt
 from dataclasses import dataclass
+import time
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
@@ -62,6 +63,7 @@ def config_info(config):
     """
     timestamp = dt.now().strftime("%Y-%m-%d %H:%M:%S")
     n = 63
+    print()
     print(" ---------------------------------------------------------------- ")
     print(f"| {f'Parallel Global Geometry Optimisation':{n}s}|")
     print(f"| {f'Genetic Algorithm':{n}s}|")
@@ -217,6 +219,12 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
         except FloatingPointError:  # deletes cluster from population if division by zero error is encountered.
             invalid_indices.append(idx)
             debug("DIVIDE BY ZERO REMOVED FROM POPULATION!")
+
+        except Exception as e:
+            invalid_indices.append(idx)
+            debug(f"[ERROR]: CAUGHT EXCEPTION: {e}")
+            debug(f"\tREMOVED FROM POPULATION - FIX PROBLEM")
+
 
     return [cluster.get_potential_energy() for idx, cluster in enumerate(population) if idx not in invalid_indices]
 

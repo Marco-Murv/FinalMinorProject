@@ -4,15 +4,29 @@
 Distributed parallelisation of the Genetic Algorithm
 """
 
+"""
+TODO:
+
+"""
+
 import os
+import sys
+import inspect
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
 
 import ase
+
+import process_data
 import genetic_algorithm as ga
+from mating import mating
+
 from genetic_algorithm import config_info, debug, fitness, generate_population
 from genetic_algorithm import get_configuration, natural_selection_step
 from genetic_algorithm import optimise_local, fitness, get_mutants
-from genetic_algorithm import store_local_minima, store_results_database
-from mating import mating
+from genetic_algorithm import store_results_database
 
 import numpy as np
 from mpi4py import MPI
@@ -32,7 +46,7 @@ def ga_distributed():
     """
     Main genetic algorithm (distributed)
     """
-    np.random.seed(241)
+
     np.seterr(divide='raise')
 
     # Initialising MPI
@@ -40,11 +54,16 @@ def ga_distributed():
     rank = comm.Get_rank()
     num_procs = comm.Get_size()
 
-    # File to get default configuration / run information
-    config_file = "run_config.yaml"
-
     # Parse possible terminal input and yaml file.
-    c = get_configuration(config_file)
+    c = None
+    if rank == 0:
+        c = get_configuration("run_config.yaml")
+
+    c = comm.bcast(c, root=0)
+
+    # Start timer
+    if rank == 0:
+        ga_start_time = MPI.Wtime()
 
     # =========================================================================
     # Initial population
@@ -56,22 +75,15 @@ def ga_distributed():
     if rank == 0:
         config_info(c)
 
-        # Provide file name
-        db_file = "genetic_algorithm_results.db"
-
-        # Connect to database
-        db_file = os.path.join(os.path.dirname(__file__), db_file)
-        db = ase.db.connect(db_file)
-
         # Create initial population
         pop = generate_population(c.pop_size, c.cluster_size, c.cluster_radius)
 
         # FIX: Make this parallel already
         energies = optimise_local(pop, c.calc, c.local_optimiser)
+
         # Keep track of global minima. Initialised with random cluster
         best_min = [pop[0]]
         local_min = [pop[0]]
-        energies_min = np.array(pop[0].get_potential_energy())
 
     # =========================================================================
     # Main loop
@@ -79,32 +91,32 @@ def ga_distributed():
     # Keep track of iterations
     gen = 0
     gen_no_success = 0
+    done = False
 
-    while gen_no_success < c.max_no_success and gen < c.max_gen:
+    while not done:
         if rank == 0:
             debug(f"Generation {gen:2d} - Population size = {len(pop)}")
 
         # Broadcast initial population
         pop = comm.bcast(pop, root=0)
-        # TODO: use Bcast instead (numpy)
-        energies = comm.bcast(energies, root=0)
+        energies = comm.bcast(energies, root=0) # TODO: use Bcast instead?
 
-
-        pop_fitness = fitness(energies, c.fitness_func)
         # Mating - get new population
-        children = mating(pop, pop_fitness, c.children_perc/num_procs, c.mating_method)
-
+        pop_fitness = fitness(energies, c.fitness_func)
+        children = mating(pop, pop_fitness, c.children_perc /
+                          num_procs, c.mating_method)
+        
         # Define sub-populaiton on every rank (only for mutating)
         chunk = len(pop) // num_procs  # TODO:
         sub_pop = pop[rank * chunk:(rank + 1) * chunk]
 
         # Mutating - get new mutants
-        mutants = get_mutants(sub_pop, c.cluster_radius, c.cluster_size)
+        mutants = []
+        if len(sub_pop) >= 2:
+            mutants = get_mutants(sub_pop, c.cluster_radius, c.cluster_size)
 
         # Local minimisation and add to population
         newborns = children + mutants
-
-        debug(f"\tRank {rank:2d} - Local optimisation of {len(newborns)} newb")
         new_energies = optimise_local(newborns, c.calc, c.local_optimiser)
 
         newborns = comm.gather(newborns, root=0)
@@ -117,14 +129,12 @@ def ga_distributed():
             pop += newborns
             energies.extend(new_energies)
 
-            # Keep track of new local minima
-            local_min, energies_min = store_local_minima(
-                newborns, energies, local_min, energies_min, c.dE_thr)
+            # Add new local minima to the list
+            local_min += newborns
 
             # Natural Selection
-            debug(f"\tRank {rank:2d} - Natural Selection")
-            pop, energies= natural_selection_step(
-                pop, energies, c.pop_size, c.dE_thr, c.fitness_func)
+            pop, energies = natural_selection_step(pop, energies, c.pop_size,
+                                                   c.dE_thr)
 
             # Store current best
             if energies[0] < best_min[-1].get_potential_energy():
@@ -136,23 +146,38 @@ def ga_distributed():
 
             gen += 1
 
+            # Check if done
+            done = gen_no_success > c.max_no_success or gen > c.max_gen
+            if MPI.Wtime() - ga_start_time > c.time_lim:
+                debug("REACHED TIME LIMIT")
+                done = True
+
         gen = comm.bcast(gen, root=0)
         gen_no_success = comm.bcast(gen_no_success, root=0)
+        done = comm.bcast(done, root=0)
 
     if rank == 0:
-        # Store / report
-        debug(f"Found {len(local_min)} local minima in total.")
-        debug("The evolution of the global minimum:")
-        debug([cluster.get_potential_energy() for cluster in best_min])
+        # Stop timer
+        ga_time = MPI.Wtime() - ga_start_time
+        print(f"\nga_distributed took {ga_time} seconds to execute")
 
+        trajFile = Trajectory(f"ga_{c.cluster_size}.traj", 'w')
+        for cluster in local_min:
+            trajFile.write(cluster)
+        trajFile.close()
+
+        # Process and report local minima
+        local_min = process_data.select_local_minima(local_min)
+        process_data.print_stats(local_min)
+
+        # Store in Database
+        db_file = os.path.join(os.path.dirname(__file__), c.db_file)
+        db = ase.db.connect(db_file)
         store_results_database(best_min[-1], local_min, db, c)
 
     return 0
 
 
 if __name__ == "__main__":
-    start = MPI.Wtime()
-    ga_distributed()
-    wt = MPI.Wtime() - start
 
-    print(f"ga_distributed took {wt} seconds to execute")
+    ga_distributed()
