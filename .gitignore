@@ -11,3 +11,4 @@
 *.yaml
 *random_state.txt
 *.png
+*.traj
