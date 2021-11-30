@@ -148,6 +148,9 @@ def ga_distributed():
 
             # Check if done
             done = gen_no_success > c.max_no_success or gen > c.max_gen
+            if MPI.Wtime() - ga_start_time > c.time_lim:
+                debug("REACHED TIME LIMIT")
+                done = True
 
         gen = comm.bcast(gen, root=0)
         gen_no_success = comm.bcast(gen_no_success, root=0)
@@ -157,6 +160,11 @@ def ga_distributed():
         # Stop timer
         ga_time = MPI.Wtime() - ga_start_time
         print(f"\nga_distributed took {ga_time} seconds to execute")
+
+        trajFile = Trajectory(f"ga_{c.cluster_size}.traj", 'w')
+        for cluster in local_min:
+            trajFile.write(cluster)
+        trajFile.close()
 
         # Process and report local minima
         local_min = process_data.select_local_minima(local_min)
