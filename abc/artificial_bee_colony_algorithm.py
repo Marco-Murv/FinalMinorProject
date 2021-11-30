@@ -18,6 +18,7 @@ import employee_bee
 import onlooker_bee
 import scout_bee
 from datetime import datetime as dt
+import time
 
 import random
 import math
@@ -177,7 +178,7 @@ def store_results_database(pop, db, c, cycle):
 
 
 def artificial_bee_colony_algorithm():
-    # np.random.seed(241)
+    tic = time.perf_counter()
     np.seterr(divide='raise')
     db_file = "artificial_bee_colony_algorithm_results.db"
     config_file = 'run_config.yaml'
@@ -197,6 +198,13 @@ def artificial_bee_colony_algorithm():
         population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size,
                                               p.cluster_radius, p.calc, p.local_optimiser)
         debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
+
+        toc = time.perf_counter()
+        if toc - tic >= 120: # if algorithm didn't stop after x seconds, stop the algorithm
+            debug(f"Function time exceeded. Stopping now")
+
+            store_results_database(population, db, p, p.cycle)
+            return
 
     store_results_database(population, db, p, p.cycle)
 

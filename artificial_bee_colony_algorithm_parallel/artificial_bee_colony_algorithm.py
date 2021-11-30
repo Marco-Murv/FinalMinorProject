@@ -23,6 +23,7 @@ import time
 import random
 import math
 import process
+import time
 
 cluster_str = 'H'
 
@@ -184,6 +185,7 @@ def store_results_database(pop, db, c, cycle):
 
 
 def artificial_bee_colony_algorithm():
+    tic = time.perf_counter();
     setup_start_time = MPI.Wtime()
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -227,6 +229,21 @@ def artificial_bee_colony_algorithm():
         if p.is_parallel == 1:
             population = comm.bcast(population, root=0)
             comm.Barrier()
+
+        toc = time.perf_counter()
+        if toc - tic >= 120: # if algorithm didn't stop after x seconds, stop the algorithm
+            debug(f"Function time exceeded. Stopping now")
+
+            # filter out local minima that are too similar and print out the results
+            local_minima = process.select_local_minima(population)
+            process.print_stats(local_minima)
+
+            db_start_time = MPI.Wtime()
+            store_results_database(local_minima, db, p, p.cycle)
+            debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
+
+            return
+
     if rank == 0:
         if p.is_parallel == 1:
             debug(f"It took {MPI.Wtime() - cycle_start_time} with {total_p} processors")
