@@ -58,7 +58,7 @@ def ga_distributed():
     # Parse possible terminal input and yaml file.
     c = None
     if rank == 0:
-        config_file = "./config/run_config.yaml"
+        config_file = "./config/ga_distributed_config.yaml"
         c = get_configuration(config_file)
 
     c = comm.bcast(c, root=0)

@@ -4,21 +4,27 @@
 Genetic algorithm for geometry optimisation of atomic clusters.
 We can add more information later.
 
-This program requires a file called `run_config.yaml` in the same directory.
-Example run_config.yaml:
+This program requires a file called `ga_config.yaml` in the same directory.
+Example ga_config.yaml:
 ```yaml
     children_perc: 0.8
     cluster_radius: 2.0
-    cluster_size: 5
-    delta_energy_thr: 0.001
+    cluster_size: 4
+    db_file: genetic_algorithm_results.db
+    delta_energy_thr: 0.1
     fitness_func: exponential
     mating_method: roulette
     max_gen: 50
-    max_no_success: 5
-    pop_size: 12
+    max_no_success: 50
+    pop_size: 5
+    results_dir: ./results
+    reuse_state: false
     run_id: 1
+    show_plot: true
+    time_lim: 100
 ```
 """
+
 import os
 import sys
 import inspect
@@ -393,7 +399,7 @@ def genetic_algorithm() -> None:
     # =========================================================================
 
     # File to get default configuration / run information
-    config_file = "./config/run_config.yaml"
+    config_file = "./config/ga_config.yaml"
 
     # Parse terminal input
     c = get_configuration(config_file)
