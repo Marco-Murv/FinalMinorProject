@@ -389,7 +389,7 @@ def genetic_algorithm() -> None:
     # =========================================================================
 
     # File to get default configuration / run information
-    config_file = "run_config.yaml"
+    config_file = "config/run_config.yaml"
 
     # Parse terminal input
     c = get_configuration(config_file)
