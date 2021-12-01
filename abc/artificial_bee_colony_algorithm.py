@@ -19,6 +19,7 @@ import onlooker_bee
 import scout_bee
 from datetime import datetime as dt
 import time
+from ase.io.trajectory import Trajectory
 
 import random
 import math
@@ -200,13 +201,18 @@ def artificial_bee_colony_algorithm():
         debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
 
         toc = time.perf_counter()
-        if toc - tic >= 120: # if algorithm didn't stop after x seconds, stop the algorithm
+        if toc - tic >= 100: # if algorithm didn't stop after x seconds, stop the algorithm
             debug(f"Function time exceeded. Stopping now")
 
             store_results_database(population, db, p, p.cycle)
             return
 
     store_results_database(population, db, p, p.cycle)
+
+    trajFile = Trajectory(f"ga_{p.cluster_size}.traj", 'w')
+    for cluster in population:
+        trajFile.write(cluster)
+    trajFile.close()
 
 
 if __name__ == '__main__':

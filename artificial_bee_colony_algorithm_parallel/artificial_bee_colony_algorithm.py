@@ -6,9 +6,6 @@ import yaml
 from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import LBFGS
-from ase.visualize import view
-from ase.io import write
-import ase.db
 import ase.db
 import os
 from typing import List
@@ -17,14 +14,11 @@ import sys
 import employee_bee
 import onlooker_bee
 import scout_bee
-from mpi4py import MPI
 from datetime import datetime as dt
-import time
-import random
-import math
 import process
 import time
 from mpi4py import MPI
+from ase.io.trajectory import Trajectory
 
 cluster_str = 'H'
 
@@ -249,7 +243,7 @@ def artificial_bee_colony_algorithm():
             comm.Barrier()
 
         toc = time.perf_counter()
-        if toc - tic >= 600: # if algorithm didn't stop after x seconds, stop the algorithm
+        if toc - tic >= 100: # if algorithm didn't stop after x seconds, stop the algorithm
             debug(f"Function time exceeded. Stopping now")
 
             # filter out local minima that are too similar and print out the results
@@ -272,6 +266,11 @@ def artificial_bee_colony_algorithm():
         # filter out local minima that are too similar and print out the results
         local_minima = process.select_local_minima(population)
         process.print_stats(local_minima)
+
+        trajFile = Trajectory(f"ga_{p.cluster_size}.traj", 'w')
+        for cluster in local_minima:
+            trajFile.write(cluster)
+        trajFile.close()
 
         db_start_time = MPI.Wtime()
         store_results_database(local_minima, db, p, p.cycle)
