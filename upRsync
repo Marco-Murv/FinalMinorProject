@@ -1,3 +1,0 @@
-#!/bin/bash
-
-rsync -avhe ssh . $LR_CLUSTER:/home/svanhulle/PGGO/ --exclude=.git/ --exclude=.vscode/ --exclude=.gitignore --exclude=*__pycache__*

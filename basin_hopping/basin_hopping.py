@@ -4,6 +4,9 @@ import argparse
 import json
 import math
 import numpy as np
+import os
+import sys
+from time import perf_counter
 from typing import Optional, Type
 import yaml
 
@@ -18,7 +21,11 @@ from ase.optimize.optimize import Optimizer
 from ase.units import kB
 from ase.visualize import view
 
-from ..filter_results import filter_trajectory
+currentdir = os.path.dirname(os.path.abspath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
+
+from filter_results import filter_trajectory
 
 class DummyMPI:
     def __init__(self) -> None:
@@ -100,17 +107,15 @@ class BasinHopping:
         self.accept_rate = accept_rate
         self.step_size_factor = step_size_factor
         self.step_size_interval = step_size_interval
-        self.trajectory = None if trajectory is None else Trajectory(trajectory, 'w')
+        self.trajectory = trajectory
         self.optimizer_logfile = optimizer_logfile
         # Initialise
         self.nTotal = self.nAccept = 0
         self.min_potential_energy = self.atoms.get_potential_energy()
         self.old_potential_energy = self.min_potential_energy
         self.min_atoms = self.atoms.copy()
-        if self.trajectory is not None:
-            self.trajectory.write(self.atoms)
     
-    def run(self, max_steps: int=500, stop_steps: Optional[int]=None, verbose: bool=False) -> None:
+    def run(self, max_steps: int=500, stop_steps: Optional[int]=None, stop_time: Optional[int]=None, verbose: bool=False) -> None:
         """
         Run the basin hopping algorithm.
 
@@ -121,12 +126,23 @@ class BasinHopping:
         stop_steps: int, None, optional
             The number of steps, without there being a new minimum, the algorithm will take before stopping.
             If None (default), the algorithm will run for the maximum number of steps.
+        stop_time: int, None, optional
+            The maximum amount of time, in seconds, the algorithm will run for before stopping.
+            If None (default), the algorithm will run for the maximum number of steps.
         verbose: bool, optional
             Print information about each step.
         """
         rank = COMM.Get_rank()
         stop_step_count = 0
-        if verbose and rank == 0: print("{:s} {:>5s} {:>16s} {:>8s}".format(" "*13, "Step", "Energy", "Accept"))
+        t0 = perf_counter()
+        # Initialise trajectory
+        trajectory = None if rank != 0 or self.trajectory is None else Trajectory(self.trajectory, 'w')
+        if trajectory is not None:
+            trajectory.write(self.atoms)
+
+        if verbose and rank == 0:
+            print("{:s} {:>5s} {:^16s} {:^10s}".format(" "*13, "Step", "Energy", "Time"))
+        
         for i in range(max_steps):
             old_positions = self.atoms.get_positions()
             # Displace atoms
@@ -135,7 +151,14 @@ class BasinHopping:
             new_potential_energy = self.get_potential_energy()
             # Gather results
             atoms = COMM.gather(self.atoms)
-            min_atoms = None if atoms is None else atoms[np.argmin([atom.get_potential_energy() for atom in atoms])]
+            if atoms is not None:
+                try:
+                    index = np.argmin([atom.get_potential_energy() for atom in atoms])
+                except ValueError:
+                    index = 0
+                min_atoms = atoms[index]
+            else:
+                min_atoms = None
             self.atoms = COMM.bcast(min_atoms)
             # Update potential energy
             new_potential_energy = self.atoms.get_potential_energy()
@@ -153,20 +176,30 @@ class BasinHopping:
             self.nTotal += 1
             if self.nTotal % self.step_size_interval: self.adjust_step_size()
             # Log step
-            if verbose and rank == 0: print(f"BasinHopping: {i:5d} {new_potential_energy:15.6f}* {str(accept):>8s}")
+            t = perf_counter() - t0
+            if verbose and rank == 0: print(f"BasinHopping: {i:5d} {new_potential_energy:15.6f}* {int(t/60%60):>2d}:{t%60:06.3f}")
             # Write to trajectory
-            if self.trajectory is not None and rank == 0:
+            if trajectory is not None:
                 for x in atoms:
-                    self.trajectory.write(x)
+                    if not math.isnan(x.get_potential_energy()):
+                        trajectory.write(x)
             # Set values for next step
             if accept:
                 self.old_potential_energy = new_potential_energy
             else:
                 self.atoms.set_positions(old_positions)
             # Stop condition
-            if stop_steps is not None and stop_step_count >= stop_steps: break
+            stop = (stop_steps is not None and stop_step_count >= stop_steps) or (stop_time is not None and perf_counter() - t0 >= stop_time)
+            stop = COMM.bcast(stop)
+            if stop: break
         
-        if verbose and rank == 0: print(f"Stopped at iteration {i}.")
+        if verbose and rank == 0:
+            t = perf_counter() - t0
+            print(f"Stopped at iteration {i}")
+            print(f"Time elapsed: {int(t/60%60):>2d}:{t%60:06.3f}")
+
+        if trajectory is not None:
+            trajectory.close()
     
     def displace_atoms(self) -> None:
         dX = np.random.uniform(-self.step_size, self.step_size, (len(self.atoms), 3))
@@ -176,7 +209,7 @@ class BasinHopping:
         # Ignore divide by zero errors
         with np.errstate(divide='ignore', invalid='ignore'):
             self.optimizer(self.atoms, logfile=self.optimizer_logfile).run(steps=50)
-            return self.atoms.get_potential_energy() or 1.e23
+            return self.atoms.get_potential_energy()
     
     def accept(self, old_potential_energy: float, new_potential_energy: float) -> bool:
         """Metropolis acceptance criterion. \n
@@ -248,7 +281,7 @@ def main(**kwargs):
     atoms = COMM.bcast(atoms)
     basin_hopping = BasinHopping(atoms, kwargs.get('temperature', 100*kB), kwargs.get('step_size', 0.5), kwargs.get('accept_rate', 0.5),
                                  kwargs.get('step_size_factor', 0.9), kwargs.get('step_size_interval', 50), trajectory=kwargs.get('trajectory'))
-    basin_hopping.run(kwargs.get('max_steps', 500), kwargs.get('stop_steps'), kwargs.get('verbose', False))
+    basin_hopping.run(kwargs.get('max_steps', 500), kwargs.get('stop_steps'), kwargs.get('stop_time'), kwargs.get('verbose', False))
     if size > 1: print(f"Basin hopping completed in rank {rank}")
 
     if rank == 0:
@@ -286,14 +319,16 @@ def main(**kwargs):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.")
     # Require either a config file or the cluster size
-    parser.add_argument("-f", "--config", type=str, default=None, help="The location of the config file")
-    parser.add_argument("-n", "--cluster-size", type=int, default=None, help="The size of the cluster")
+    config_or_size = parser.add_mutually_exclusive_group(required=True)
+    config_or_size.add_argument("-f", "--config", type=str, help="The location of the config file")
+    config_or_size.add_argument("-n", "--cluster-size", type=int, help="The size of the cluster")
     # 
     parser.add_argument("-r", "--radius", type=float, default=1, help="Radius of the sphere the initial atoms configuration is uniformly distributed in")
     parser.add_argument("-c", "--max-radius", type=float, default=None, help="The maximum radius of the cube to constrain the atoms in. If not set, no constraint is placed on the atoms")
     #
     parser.add_argument("-m", "--max-steps", type=int, default=500, help="The maximum number of steps the algorithm will take")
-    parser.add_argument("-s", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
+    parser.add_argument("-ss", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
+    parser.add_argument("-st", "--stop-time", type=int, default=None, help="The maximum amount of time, in seconds, the algorithm will run for before stopping. If not set, the algorithm will run for the maximum number of steps")
     #
     parser.add_argument("--temperature", type=float, default=100*kB, help="The temperature parameter for the Metropolis acceptance criterion")
     parser.add_argument("--step-size", type=float, default=0.5, help="The initial value of the step size")

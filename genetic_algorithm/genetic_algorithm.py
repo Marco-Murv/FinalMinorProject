@@ -399,7 +399,7 @@ def genetic_algorithm() -> None:
     # =========================================================================
 
     # File to get default configuration / run information
-    config_file = "./config/ga_config.yaml"
+    config_file = "config/ga_config.yaml"
 
     # Parse terminal input
     c = get_configuration(config_file)
@@ -488,10 +488,11 @@ def genetic_algorithm() -> None:
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
 
-    trajFile = Trajectory(f"{c.results_dir}/ga_{c.cluster_size}.traj", 'w')
+    traj_file_path = os.path.join(os.path.dirname(__file__), f"{c.results_dir}/ga_{c.cluster_size}.traj")
+    traj_file = Trajectory(traj_file_path, 'w')
     for cluster in local_min:
-        trajFile.write(cluster)
-    trajFile.close()
+        traj_file.write(cluster)
+    traj_file.close()
 
     # Connect to database and store results
     db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)

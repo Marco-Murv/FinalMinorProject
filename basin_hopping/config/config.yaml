@@ -1,7 +1,10 @@
-cluster_size: 30
-radius: 2
-max_radius: 2.5
-stop_steps: 100
+cluster_size: 10
+radius: 1
+max_radius: 1.5
+max_steps: 1000
+stop_time: 100
 step_size_interval: 20
-database: ./basin_hopping.db
-trajectory: ./trajectory.traj
+filter_type: d
+difference: 0.1
+database: ./results/basin_hopping.db
+trajectory: ./results/basin_hopping_X10.traj

@@ -5,5 +5,5 @@
 
 ## Basin Hopping
 ```
-mpirun -np N python ./basin_hopping.py
+./basin_hopping.py -f ./config/config.yaml -v
 ```
