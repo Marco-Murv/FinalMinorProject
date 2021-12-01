@@ -2,3 +2,13 @@
 *temp.py
 *.pyc
 *.pyo
+.idea/
+
+*.pyo
+*log
+*.vscode/
+*.db
+*.yaml
+*random_state.txt
+*.png
+*.traj
