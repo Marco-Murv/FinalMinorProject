@@ -21,11 +21,16 @@ python3 genetic_algorithm.py
 ### Run `ga_distributed.py`
 
 ```
-mpiexec -n 4 python3 ga_distributed.py 
+mpiexec -n P python3 ga_distributed.py 
 ```
+* `P` is the number of processors
+* Specify configuration in config file or by terminal arguments
+* Add `-h` for help menu
 
-### Run `ga_subpopulation.py`
+### Run `ga_sub_population.py`
 
 ```
-mpiexec -n 4 python3 ga_sub_populations.py 
+mpiexec -n P python3 ga_sub_populations.py 
 ```
+* Specify configuration in config file or by terminal arguments
+* Add `-h` for help menu
