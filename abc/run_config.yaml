@@ -2,4 +2,4 @@ cluster_radius: 2.0
 cluster_size: 20
 cycle: 100
 pop_size: 20
-run_id: 84
+run_id: 86

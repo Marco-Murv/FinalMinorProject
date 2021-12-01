@@ -24,6 +24,7 @@ import random
 import math
 import process
 import time
+from mpi4py import MPI
 
 cluster_str = 'H'
 
@@ -163,6 +164,23 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     Returns:
         (List[Atoms])           : Optimised population
     """
+
+    """ Parallel version of this method. Currently gives a "Atom has no calculator" error in employee bee
+    comm = MPI.COMM_WORLD
+
+    splitted_population = split(population, comm.Get_size()) # divides the array into n parts to divide over processors
+    population = comm.scatter(splitted_population, root=0)
+
+    result = []
+    for cluster in population:
+        result.append(optimise_local_each(cluster, calc, optimiser).get_potential_energy())
+
+    optimised_clusters = comm.gather(result, root=0)
+    optimised_clusters = [item for sublist in optimised_clusters for item in sublist]
+
+    return optimised_clusters
+    """
+
     return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
 
 
@@ -185,7 +203,7 @@ def store_results_database(pop, db, c, cycle):
 
 
 def artificial_bee_colony_algorithm():
-    tic = time.perf_counter();
+    tic = time.perf_counter()
     setup_start_time = MPI.Wtime()
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -231,7 +249,7 @@ def artificial_bee_colony_algorithm():
             comm.Barrier()
 
         toc = time.perf_counter()
-        if toc - tic >= 120: # if algorithm didn't stop after x seconds, stop the algorithm
+        if toc - tic >= 600: # if algorithm didn't stop after x seconds, stop the algorithm
             debug(f"Function time exceeded. Stopping now")
 
             # filter out local minima that are too similar and print out the results
@@ -258,6 +276,16 @@ def artificial_bee_colony_algorithm():
         db_start_time = MPI.Wtime()
         store_results_database(local_minima, db, p, p.cycle)
         debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
+
+
+def split(a, n):
+    """
+    Splits an array 'a' into n parts.
+    For example split the following array into 5 parts: [1,2,3,4,5,6,7,8,9,10] -> [[1,2],[3,4],[5,6],[7,8],[9,10]]
+    """
+
+    k, m = divmod(len(a), n)
+    return list(a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
 
 
 if __name__ == '__main__':
