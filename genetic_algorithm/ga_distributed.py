@@ -58,7 +58,7 @@ def ga_distributed():
     # Parse possible terminal input and yaml file.
     c = None
     if rank == 0:
-        config_file = "./config/ga_distributed_config.yaml"
+        config_file = os.path.join(os.path.dirname(__file__), "config/ga_distributed_config.yaml")
         c = get_configuration(config_file)
 
     c = comm.bcast(c, root=0)
@@ -108,7 +108,7 @@ def ga_distributed():
         children = mating(pop, pop_fitness, c.children_perc /
                           num_procs, c.mating_method)
         
-        # Define sub-populaiton on every rank (only for mutating)
+        # Define sub-population on every rank (only for mutating)
         chunk = len(pop) // num_procs  # TODO:
         sub_pop = pop[rank * chunk:(rank + 1) * chunk]
 
@@ -167,10 +167,11 @@ def ga_distributed():
         local_min = process_data.select_local_minima(local_min)
         process_data.print_stats(local_min)
 
-        trajFile = Trajectory(f"{c.results_dir}/ga_distr_{c.cluster_size}.traj", 'w')
+        traj_file_path = os.path.join(os.path.dirname(__file__), f"{c.results_dir}/ga_distr_{c.cluster_size}.traj")
+        traj_file = Trajectory(traj_file_path, 'w')
         for cluster in local_min:
-            trajFile.write(cluster)
-        trajFile.close()
+            traj_file.write(cluster)
+        traj_file.close()
 
         # Store in Database
         db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)
