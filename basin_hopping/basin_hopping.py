@@ -153,13 +153,16 @@ class BasinHopping:
             atoms = COMM.gather(self.atoms)
             if atoms is not None:
                 try:
-                    index = np.argmin([atom.get_potential_energy() for atom in atoms])
+                    index = np.nanargmin([atom.get_potential_energy() for atom in atoms])
                 except ValueError:
                     index = 0
                 min_atoms = atoms[index]
             else:
                 min_atoms = None
-            self.atoms = COMM.bcast(min_atoms)
+            # Stop condition
+            stop = (stop_steps is not None and stop_step_count >= stop_steps) or (stop_time is not None and perf_counter() - t0 >= stop_time)
+            # Broadcast minimum
+            self.atoms, stop = COMM.bcast((min_atoms, stop))
             # Update potential energy
             new_potential_energy = self.atoms.get_potential_energy()
             # Check if new global minimum was found
@@ -189,8 +192,6 @@ class BasinHopping:
             else:
                 self.atoms.set_positions(old_positions)
             # Stop condition
-            stop = (stop_steps is not None and stop_step_count >= stop_steps) or (stop_time is not None and perf_counter() - t0 >= stop_time)
-            stop = COMM.bcast(stop)
             if stop: break
         
         if verbose and rank == 0:
