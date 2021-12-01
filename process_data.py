@@ -19,6 +19,8 @@ def select_local_minima(minima, energy_diff=0.1):
     local_minima = [sorted_clusters[0]]
     for i in range(sorted_clusters.shape[0]):
         energy = sorted_clusters[i, 1]
+        if energy > 0:
+            break
         if np.abs(local_minima[-1][1] - energy) > energy_diff:
             local_minima.append(sorted_clusters[i])
 
