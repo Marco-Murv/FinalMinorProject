@@ -8,7 +8,8 @@ mating_method: roulette
 max_gen: 50
 max_no_success: 50
 pop_size: 5
+results_dir: ./results
 reuse_state: false
-run_id: 3
-show_plot: false
+run_id: 10
+show_plot: true
 time_lim: 100

@@ -81,6 +81,9 @@ def mating(pop, pop_fitness, child_perc, method="roulette",
     children = []
     parents = []
 
+    if len(pop) <= 2:
+        return []
+
     while len(children) < num_children:
         while len(parents) < num_children * 2:
             if method == "roulette":

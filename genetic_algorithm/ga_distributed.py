@@ -58,7 +58,8 @@ def ga_distributed():
     # Parse possible terminal input and yaml file.
     c = None
     if rank == 0:
-        c = get_configuration("run_config.yaml")
+        config_file = "./config/run_config.yaml"
+        c = get_configuration(config_file)
 
     c = comm.bcast(c, root=0)
 
@@ -166,13 +167,13 @@ def ga_distributed():
         local_min = process_data.select_local_minima(local_min)
         process_data.print_stats(local_min)
 
-        trajFile = Trajectory(f"ga_distr_{c.cluster_size}.traj", 'w')
+        trajFile = Trajectory(f"{c.results_dir}/ga_distr_{c.cluster_size}.traj", 'w')
         for cluster in local_min:
             trajFile.write(cluster)
         trajFile.close()
 
         # Store in Database
-        db_file = os.path.join(os.path.dirname(__file__), c.db_file)
+        db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)
         db = ase.db.connect(db_file)
         store_results_database(best_min[-1], local_min, db, c)
 

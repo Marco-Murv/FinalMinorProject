@@ -302,13 +302,13 @@ def ga_sub_populations():
         process_data.print_stats(local_min)
 
         # Write all local minima to trajectory file
-        traj_file = Trajectory(f"ga_sub_pop_{c.cluster_size}.traj", 'w')
+        traj_file = Trajectory(f"{c.results_dir}/ga_sub_pop_{c.cluster_size}.traj", 'w')
         for cluster in local_min:
             traj_file.write(cluster)
         traj_file.close()
 
         # Connect to database
-        db_file = os.path.join(os.path.dirname(__file__), c.db_file)
+        db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)
         db = ase.db.connect(db_file)
         store_results_database(local_min[0], local_min, db, c)
 

@@ -81,11 +81,12 @@ def config_info(config):
 class Config:
     cluster_size: int = None
     pop_size: int = None
+    max_no_success: int = None
     fitness_func: str = None
     mating_method: str = None
+    results_dir: str = None
     children_perc: float = None
     cluster_radius: float = None
-    max_no_success: int = None
     max_gen: int = None
     dE_thr: float = None
     run_id: int = None
@@ -138,6 +139,8 @@ def get_configuration(config_file):
                         help="Show Evolutionary Progress Plot")
     parser.add_argument('--db_file', type=str, metavar='',
                         help="The database file to write results to")
+    parser.add_argument('--results_dir', type=str, metavar='',
+                        help="Directory to store results")
     parser.add_argument('--run_id', type=int, metavar='',
                         help="ID for the current run. Increments automatically")
     parser.add_argument('--time_lim', type=float, metavar='',
@@ -159,6 +162,7 @@ def get_configuration(config_file):
     c.reuse_state = p.reuse_state or yaml_conf['reuse_state']
     c.show_plot = p.show_plot or yaml_conf['show_plot']
     c.db_file = p.db_file or yaml_conf['db_file']
+    c.results_dir = p.results_dir or yaml_conf['results_dir']
     c.run_id = p.run_id or yaml_conf['run_id']
     c.time_lim = p.time_lim or yaml_conf['time_lim']
 
@@ -255,17 +259,17 @@ def fitness(energies, func="exponential") -> np.ndarray:
         return fitness(energies)
 
 
-def plot_EPP(lowest_energies, highest_energies, average_energies, run_id):
+def plot_EPP(lowest_energies, highest_energies, average_energies, c):
     """
     This function will show the EPP (Evolutionary Progress Plot) of this GA run.
 
     @param lowest_energies: list containing the minimum energy in each generation
     @param highest_energies: list containing the highest energy in each generation
     @param average_energies: list containing the average energy in each generation
-    @param run_id: the id of this GA run
+    @param c: Configuration
     @return:
     """
-    plot_file = os.path.join(os.path.dirname(__file__), f'EPP_run_{run_id}.png')
+    plot_file = os.path.join(os.path.dirname(__file__), f'{c.results_dir}/EPP_run_{c.run_id}.png')
     gens = np.arange(0, len(lowest_energies))
 
     plt.figure(1)
@@ -389,7 +393,7 @@ def genetic_algorithm() -> None:
     # =========================================================================
 
     # File to get default configuration / run information
-    config_file = "config/run_config.yaml"
+    config_file = "./config/run_config.yaml"
 
     # Parse terminal input
     c = get_configuration(config_file)
@@ -478,19 +482,19 @@ def genetic_algorithm() -> None:
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
 
-    trajFile = Trajectory(f"ga_{c.cluster_size}.traj", 'w')
+    trajFile = Trajectory(f"{c.results_dir}/ga_{c.cluster_size}.traj", 'w')
     for cluster in local_min:
         trajFile.write(cluster)
     trajFile.close()
 
     # Connect to database and store results
-    db_file = os.path.join(os.path.dirname(__file__), c.db_file)
+    db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)
     db = ase.db.connect(db_file)
     store_results_database(local_min[0], local_min[1:], db, c)
 
     # Show EPP plot if desired
     if c.show_plot:
-        plot_EPP(lowest_energies, highest_energies, average_energies, c.run_id)
+        plot_EPP(lowest_energies, highest_energies, average_energies, c)
 
     return 0
 
