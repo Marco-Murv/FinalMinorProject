@@ -11,16 +11,17 @@ module load mpi/openmpi-1.8.8-gnu
 
 cd /home/svanhulle/PGGO/
 
+echo "THIS IS A TEST"
 echo "Activating python environment"
 source envPGGO/bin/activate
 
 echo "Starting Run"
 
 echo "Running genetic_algorithm.py"
-python3 -m cProfile -s cumtime genetic_algorithm/genetic_algorithm.py > logGA
+python3 genetic_algorithm/genetic_algorithm.py > logGA
 
 echo "Running ga_distributed.py"
-mpirun -np 4  python3 -m cProfile -s cumtime genetic_algorithm/ga_distributed.py > logDistr
+mpiexec -n 4  python3 genetic_algorithm/ga_distributed.py > logDistr
 
 
 
