@@ -319,8 +319,9 @@ def main(**kwargs):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.")
     # Require either a config file or the cluster size
-    parser.add_argument("-f", "--config", type=str, default=None, help="The location of the config file")
-    parser.add_argument("-n", "--cluster-size", type=int, default=None, help="The size of the cluster")
+    config_or_size = parser.add_mutually_exclusive_group(required=True)
+    config_or_size.add_argument("-f", "--config", type=str, help="The location of the config file")
+    config_or_size.add_argument("-n", "--cluster-size", type=int, help="The size of the cluster")
     # 
     parser.add_argument("-r", "--radius", type=float, default=1, help="Radius of the sphere the initial atoms configuration is uniformly distributed in")
     parser.add_argument("-c", "--max-radius", type=float, default=None, help="The maximum radius of the cube to constrain the atoms in. If not set, no constraint is placed on the atoms")

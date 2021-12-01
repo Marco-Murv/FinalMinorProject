@@ -1,7 +1,7 @@
 {
     "$schema": "http://json-schema.org/draft/2020-12/schema",
-    "title": "Basin Hopping YAML Config",
-    "description": "YAML config autocompletion for the basin hopping algorithm",
+    "title": "Basin Hopping Config",
+    "description": "Config autocompletion for the basin hopping algorithm",
     "type": "object",
     "properties": {
         "$schema": {
