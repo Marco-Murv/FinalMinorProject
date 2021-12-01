@@ -151,7 +151,14 @@ class BasinHopping:
             new_potential_energy = self.get_potential_energy()
             # Gather results
             atoms = COMM.gather(self.atoms)
-            min_atoms = None if atoms is None else atoms[np.nanargmin([atom.get_potential_energy() for atom in atoms])]
+            if atoms is not None:
+                try:
+                    index = np.argmin([atom.get_potential_energy() for atom in atoms])
+                except ValueError:
+                    index = 0
+                min_atoms = atoms[index]
+            else:
+                min_atoms = None
             self.atoms = COMM.bcast(min_atoms)
             # Update potential energy
             new_potential_energy = self.atoms.get_potential_energy()

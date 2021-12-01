@@ -85,6 +85,12 @@
             "minimum": 1,
             "default": 2
         },
+        "difference": {
+            "type": "number",
+            "description": "Minimum potential energy difference between unique local minima to check for uniqueness",
+            "minumumExclusive": 0,
+            "default": 0.1
+        },
         "database": {
             "type": ["string", "null"],
             "description": "Database file for storing global minima",
