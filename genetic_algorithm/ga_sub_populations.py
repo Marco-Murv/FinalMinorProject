@@ -151,7 +151,7 @@ def ga_sub_populations():
     num_procs = comm.Get_size()
 
     # File to get default configuration / run information
-    config_file = os.path.join(os.path.dirname(__file__), "config/ga_sub_populations_config.yaml")
+    config_file = "config/ga_sub_populations_config.yaml"
 
     # Parse possible terminal input and yaml file.
     # TODO: Bcast config + random state?

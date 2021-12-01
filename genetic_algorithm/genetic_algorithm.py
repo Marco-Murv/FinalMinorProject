@@ -399,7 +399,7 @@ def genetic_algorithm() -> None:
     # =========================================================================
 
     # File to get default configuration / run information
-    config_file = os.path.join(os.path.dirname(__file__), "config/ga_config.yaml")
+    config_file = "config/ga_config.yaml"
 
     # Parse terminal input
     c = get_configuration(config_file)
