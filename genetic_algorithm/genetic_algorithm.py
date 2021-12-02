@@ -107,10 +107,9 @@ class Config:
 def get_configuration(config_file):
     """Set the parameters for this run.
 
-    :param config_file: Filename to the yaml configuration
-    :type config_file: str
-    :return: object with all the configuration parameters
-    :rtype: Config
+    @param config_file: Filename to the yaml configuration
+    @type config_file: str
+    @return: object with all the configuration parameters
     """
 
     # Get parameters from config file
