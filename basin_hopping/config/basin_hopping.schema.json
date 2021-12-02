@@ -1,0 +1,131 @@
+{
+    "$schema": "http://json-schema.org/draft/2020-12/schema",
+    "title": "Basin Hopping Config",
+    "description": "Config autocompletion for the basin hopping algorithm",
+    "type": "object",
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "cluster_size": {
+            "type": "integer",
+            "description": "The size of the cluster",
+            "minimum": 1,
+            "default": 1
+        },
+        "radius": {
+            "type": "number",
+            "description": "Radius of the sphere the initial atoms configuration is uniformly distributed in",
+            "minimum": 0,
+            "default": 1
+        },
+        "max_radius": {
+            "type": ["number", "null"],
+            "description": "The maximum radius of the cube to constrain the atoms in. If not set, no constraint is placed on the atoms",
+            "minimum": 0,
+            "default": 1.5
+        },
+        "max_steps": {
+            "type": "integer",
+            "description": "The maximum number of steps the algorithm will take",
+            "minimum": 1,
+            "default": 500
+        },
+        "stop_steps": {
+            "type": ["integer", "null"],
+            "description": "The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps",
+            "minimum": 1,
+            "default": 100
+        },
+        "stop_time": {
+            "type": ["integer", "null"],
+            "description": "The maximum amount of time, in seconds, the algorithm will run for before stopping. If not set, the algorithm will run for the maximum number of steps",
+            "minimum": 1,
+            "default": 100
+        },
+        "temperature": {
+            "type": "number",
+            "description": "The temperature parameter for the Metropolis acceptance criterion",
+            "exclusiveMinimum": 0,
+            "default": "8.617333262145e-3"
+        },
+        "step_size": {
+            "type": "number",
+            "description": "The initial value of the step size",
+            "exclusiveMinimum": 0,
+            "default": 0.5
+        },
+        "accept_rate": {
+            "type": "number",
+            "description": "The desired step acceptance rate",
+            "exclusiveMinimum": 0,
+            "default": 0.5
+        },
+        "step_size_factor": {
+            "type": "number",
+            "description": "The factor to multiply and divide the step size by",
+            "exclusiveMinimum": 0,
+            "default": 0.9
+        },
+        "step_size_interval": {
+            "type": "integer",
+            "description": "The interval for how often to update the step size",
+            "minimum": 1,
+            "default": 50
+        },
+        "filter_type": {
+            "type": ["string", "null"],
+            "enum": [null, "s", "d"],
+            "description": "Filter the found local minima\n null : no filter\n s : significant figures filter\n d : difference filter",
+            "default": "s"
+        },
+        "significant_figures": {
+            "type": "integer",
+            "description": "Significant figures to round the potential energy to to check for uniqueness",
+            "minimum": 1,
+            "default": 2
+        },
+        "difference": {
+            "type": "number",
+            "description": "Minimum potential energy difference between unique local minima to check for uniqueness",
+            "minumumExclusive": 0,
+            "default": 0.1
+        },
+        "database": {
+            "type": ["string", "null"],
+            "description": "Database file for storing global minima",
+            "default": "./basin_hopping.db"
+        },
+        "trajectory": {
+            "type": ["string", "null"],
+            "description": "Trajectory file for storing local minima",
+            "default": "./trajectory.traj"
+        },
+        "filtered_trajectory": {
+            "type": ["string", "null"],
+            "description": "Trajectory file for storing filtered local minima. If null, filtered local minima are stored in the original",
+            "default": "./trajectory.o.traj"
+        },
+        "verbose": {
+            "type": "boolean",
+            "description": "Print information about each step",
+            "default": true
+        }
+    },
+    "required": ["cluster_size"],
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "filter_type": {
+                        "enum": ["s", "d"]
+                    }
+                }
+            },
+            "then": {
+                "required": ["trajectory"]
+            }
+        }
+    ],
+    "additionalProperties": false
+}

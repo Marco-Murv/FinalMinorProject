@@ -1,3 +1,15 @@
 *__pycache__/
+*temp.py
+*temp
 *.pyc
 *.pyo
+.idea/
+
+*.pyo
+*log
+*.vscode/
+*.db
+*.yaml
+*random_state.txt
+*.png
+*.traj
