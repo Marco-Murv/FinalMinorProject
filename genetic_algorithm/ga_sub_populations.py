@@ -151,7 +151,7 @@ def ga_sub_populations():
     num_procs = comm.Get_size()
 
     # File to get default configuration / run information
-    config_file = "run_config.yaml"
+    config_file = "config/ga_sub_populations_config.yaml"
 
     # Parse possible terminal input and yaml file.
     # TODO: Bcast config + random state?
@@ -302,13 +302,14 @@ def ga_sub_populations():
         process_data.print_stats(local_min)
 
         # Write all local minima to trajectory file
-        traj_file = Trajectory(f"ga_sub_pop_{c.cluster_size}.traj", 'w')
+        traj_file_path = os.path.join(os.path.dirname(__file__), f"{c.results_dir}/ga_sub_pop_{c.cluster_size}.traj")
+        traj_file = Trajectory(traj_file_path, 'w')
         for cluster in local_min:
             traj_file.write(cluster)
         traj_file.close()
 
         # Connect to database
-        db_file = os.path.join(os.path.dirname(__file__), c.db_file)
+        db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)
         db = ase.db.connect(db_file)
         store_results_database(local_min[0], local_min, db, c)
 

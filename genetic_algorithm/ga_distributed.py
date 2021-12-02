@@ -18,6 +18,7 @@ parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
 import ase
+from ase.io.trajectory import Trajectory
 
 import process_data
 import genetic_algorithm as ga
@@ -57,7 +58,8 @@ def ga_distributed():
     # Parse possible terminal input and yaml file.
     c = None
     if rank == 0:
-        c = get_configuration("run_config.yaml")
+        config_file = "config/ga_distributed_config.yaml"
+        c = get_configuration(config_file)
 
     c = comm.bcast(c, root=0)
 
@@ -106,7 +108,7 @@ def ga_distributed():
         children = mating(pop, pop_fitness, c.children_perc /
                           num_procs, c.mating_method)
         
-        # Define sub-populaiton on every rank (only for mutating)
+        # Define sub-population on every rank (only for mutating)
         chunk = len(pop) // num_procs  # TODO:
         sub_pop = pop[rank * chunk:(rank + 1) * chunk]
 
@@ -161,17 +163,18 @@ def ga_distributed():
         ga_time = MPI.Wtime() - ga_start_time
         print(f"\nga_distributed took {ga_time} seconds to execute")
 
-        trajFile = Trajectory(f"ga_{c.cluster_size}.traj", 'w')
-        for cluster in local_min:
-            trajFile.write(cluster)
-        trajFile.close()
-
         # Process and report local minima
         local_min = process_data.select_local_minima(local_min)
         process_data.print_stats(local_min)
 
+        traj_file_path = os.path.join(os.path.dirname(__file__), f"{c.results_dir}/ga_distr_{c.cluster_size}.traj")
+        traj_file = Trajectory(traj_file_path, 'w')
+        for cluster in local_min:
+            traj_file.write(cluster)
+        traj_file.close()
+
         # Store in Database
-        db_file = os.path.join(os.path.dirname(__file__), c.db_file)
+        db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)
         db = ase.db.connect(db_file)
         store_results_database(best_min[-1], local_min, db, c)
 

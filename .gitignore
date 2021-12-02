@@ -1,5 +1,6 @@
 *__pycache__/
 *temp.py
+*temp
 *.pyc
 *.pyo
 .idea/
@@ -11,3 +12,4 @@
 *.yaml
 *random_state.txt
 *.png
+*.traj

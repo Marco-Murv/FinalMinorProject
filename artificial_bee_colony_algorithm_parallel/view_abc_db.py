@@ -9,23 +9,25 @@ import os
 def show_db(db):
     print("\nShowing the contents of the database:")
     print("-----------------------------------------------------------------------")
-    print("| ID | Cluster Size | Pop. Size | Max Gens | Max NO Success |  Energy |")
+    print("| ID | Cluster Size | Pop. Size | Energy |")
     print("-----------------------------------------------------------------------")
     for i in range(len(db)):
         row = db[i+1]
+
         print(f"|{row.id:3d} |{row.cluster_size:13d} |{row.pop_size:10d} |"
-              f"{row.max_gens:9d} |{row.max_no_success:15d} |{row.energy:8.3f} |")
+              f"{row.potential_energy:8.7f}")
     print("----------------------------------------------------------------------")
 
 
 def show_help():
     print("\nProvide one or more valid ID from the database to view.\n"
           "Provide a negative number to show the database\n"
+          "Write 'db' to show database\n"
           "Write 'h' to show this help\n"
           "Write 'q' or 'Q' to quit")
 
 
-db_file_relative = "genetic_algorithm_results.db"
+db_file_relative = "artificial_bee_colony_algorithm_results.db"
 
 dirname = os.path.dirname(__file__)
 db_file = os.path.join(dirname, db_file_relative)
@@ -46,9 +48,9 @@ else:
 
 
 while True:
+
     while any([int(view_id) <= 0 or int(view_id) > len(db) for view_id in view_ids]):
-        if not str(0) in view_ids:
-            show_db(db)
+
 
         # view_id = list(input(f"\n\tView ID: "))
         view_ids = list(input("\n\tView ID(s) : ").strip().split())
@@ -57,6 +59,8 @@ while True:
             view_ids = [int(view_id) for view_id in view_ids]
 
         except ValueError:
+            if 'db' in view_ids:
+                show_db(db)
             if 'q' in view_ids or 'Q' in view_ids:
                 sys.exit("\n\nExiting...\n")
 

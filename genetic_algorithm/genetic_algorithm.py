@@ -4,21 +4,27 @@
 Genetic algorithm for geometry optimisation of atomic clusters.
 We can add more information later.
 
-This program requires a file called `run_config.yaml` in the same directory.
-Example run_config.yaml:
+This program requires a file called `ga_config.yaml` in the same directory.
+Example ga_config.yaml:
 ```yaml
     children_perc: 0.8
     cluster_radius: 2.0
-    cluster_size: 5
-    delta_energy_thr: 0.001
+    cluster_size: 4
+    db_file: genetic_algorithm_results.db
+    delta_energy_thr: 0.1
     fitness_func: exponential
     mating_method: roulette
     max_gen: 50
-    max_no_success: 5
-    pop_size: 12
+    max_no_success: 50
+    pop_size: 5
+    results_dir: ./results
+    reuse_state: false
     run_id: 1
+    show_plot: true
+    time_lim: 100
 ```
 """
+
 import os
 import sys
 import inspect
@@ -81,11 +87,12 @@ def config_info(config):
 class Config:
     cluster_size: int = None
     pop_size: int = None
+    max_no_success: int = None
     fitness_func: str = None
     mating_method: str = None
+    results_dir: str = None
     children_perc: float = None
     cluster_radius: float = None
-    max_no_success: int = None
     max_gen: int = None
     dE_thr: float = None
     run_id: int = None
@@ -100,10 +107,9 @@ class Config:
 def get_configuration(config_file):
     """Set the parameters for this run.
 
-    :param config_file: Filename to the yaml configuration
-    :type config_file: str
-    :return: object with all the configuration parameters
-    :rtype: Config
+    @param config_file: Filename to the yaml configuration
+    @type config_file: str
+    @return: object with all the configuration parameters
     """
 
     # Get parameters from config file
@@ -138,6 +144,8 @@ def get_configuration(config_file):
                         help="Show Evolutionary Progress Plot")
     parser.add_argument('--db_file', type=str, metavar='',
                         help="The database file to write results to")
+    parser.add_argument('--results_dir', type=str, metavar='',
+                        help="Directory to store results")
     parser.add_argument('--run_id', type=int, metavar='',
                         help="ID for the current run. Increments automatically")
     parser.add_argument('--time_lim', type=float, metavar='',
@@ -147,25 +155,26 @@ def get_configuration(config_file):
 
     c = Config()
     # Set variables to terminal input if possible, otherwise use config file
-    c.cluster_size = p.cluster_size or yaml_conf['cluster_size']
-    c.pop_size = p.pop_size or yaml_conf['pop_size']
-    c.fitness_func = p.fitness_func or yaml_conf['fitness_func']
-    c.mating_method = p.mating_method or yaml_conf['mating_method']
-    c.children_perc = p.children_perc or yaml_conf['children_perc']
-    c.cluster_radius = p.cluster_radius or yaml_conf['cluster_radius']
-    c.max_no_success = p.max_no_success or yaml_conf['max_no_success']
-    c.max_gen = p.max_gen or yaml_conf['max_gen']
-    c.dE_thr = p.delta_energy_thr or yaml_conf['delta_energy_thr']
+    c.cluster_size = p.cluster_size or yaml_conf['general']['cluster_size']
+    c.dE_thr = p.delta_energy_thr or yaml_conf['general']['delta_energy_thr']
+    c.cluster_radius = p.cluster_radius or yaml_conf['general']['cluster_radius']
+    c.pop_size = p.pop_size or yaml_conf['general']['pop_size']
+    c.children_perc = p.children_perc or yaml_conf['mating']['children_perc']
+    c.fitness_func = p.fitness_func or yaml_conf['mating']['fitness_func']
+    c.mating_method = p.mating_method or yaml_conf['mating']['mating_method']
+    c.max_gen = p.max_gen or yaml_conf['stop_conditions']['max_gen']
+    c.max_no_success = p.max_no_success or yaml_conf['stop_conditions']['max_no_success']
+    c.time_lim = p.time_lim or yaml_conf['stop_conditions']['time_lim']
+    c.results_dir = p.results_dir or yaml_conf['results']['results_dir']
+    c.db_file = p.db_file or yaml_conf['results']['db_file']
     c.reuse_state = p.reuse_state or yaml_conf['reuse_state']
     c.show_plot = p.show_plot or yaml_conf['show_plot']
-    c.db_file = p.db_file or yaml_conf['db_file']
     c.run_id = p.run_id or yaml_conf['run_id']
-    c.time_lim = p.time_lim or yaml_conf['time_lim']
 
     # Increment run_id for next run
     yaml_conf['run_id'] += 1
     with open(config_file, 'w') as f:
-        yaml.dump(yaml_conf, f)
+        yaml.dump(yaml_conf, f, default_style=False)
 
     return c
 
@@ -255,17 +264,17 @@ def fitness(energies, func="exponential") -> np.ndarray:
         return fitness(energies)
 
 
-def plot_EPP(lowest_energies, highest_energies, average_energies, run_id):
+def plot_EPP(lowest_energies, highest_energies, average_energies, c):
     """
     This function will show the EPP (Evolutionary Progress Plot) of this GA run.
 
     @param lowest_energies: list containing the minimum energy in each generation
     @param highest_energies: list containing the highest energy in each generation
     @param average_energies: list containing the average energy in each generation
-    @param run_id: the id of this GA run
+    @param c: Configuration
     @return:
     """
-    plot_file = os.path.join(os.path.dirname(__file__), f'EPP_run_{run_id}.png')
+    plot_file = os.path.join(os.path.dirname(__file__), f'{c.results_dir}/EPP_run_{c.run_id}.png')
     gens = np.arange(0, len(lowest_energies))
 
     plt.figure(1)
@@ -389,7 +398,7 @@ def genetic_algorithm() -> None:
     # =========================================================================
 
     # File to get default configuration / run information
-    config_file = "run_config.yaml"
+    config_file = "config/ga_config.yaml"
 
     # Parse terminal input
     c = get_configuration(config_file)
@@ -473,23 +482,25 @@ def genetic_algorithm() -> None:
     ga_time = time.time() - ga_start_time
     print(f"\nGenetic Algorithm took {ga_time:.2f} seconds to execute\n")
 
-    trajFile = Trajectory(f"ga_{c.cluster_size}.traj", 'w')
-    for cluster in local_min:
-        trajFile.write(cluster)
-    trajFile.close()
 
     # Store / report
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
 
+    traj_file_path = os.path.join(os.path.dirname(__file__), f"{c.results_dir}/ga_{c.cluster_size}.traj")
+    traj_file = Trajectory(traj_file_path, 'w')
+    for cluster in local_min:
+        traj_file.write(cluster)
+    traj_file.close()
+
     # Connect to database and store results
-    db_file = os.path.join(os.path.dirname(__file__), c.db_file)
+    db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)
     db = ase.db.connect(db_file)
     store_results_database(local_min[0], local_min[1:], db, c)
 
     # Show EPP plot if desired
     if c.show_plot:
-        plot_EPP(lowest_energies, highest_energies, average_energies, c.run_id)
+        plot_EPP(lowest_energies, highest_energies, average_energies, c)
 
     return 0
 
