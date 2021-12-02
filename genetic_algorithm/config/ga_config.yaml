@@ -1,15 +1,19 @@
-children_perc: 0.8
-cluster_radius: 2.0
-cluster_size: 4
-db_file: genetic_algorithm_results.db
-delta_energy_thr: 0.1
-fitness_func: exponential
-mating_method: roulette
-max_gen: 50
-max_no_success: 50
-pop_size: 5
-results_dir: ./results
+general:
+  cluster_radius: 2.0
+  cluster_size: 4
+  delta_energy_thr: 0.1
+  pop_size: 5
+mating:
+  children_perc: 0.8
+  fitness_func: exponential
+  mating_method: roulette
+results:
+  db_file: genetic_algorithm_results.db
+  results_dir: results
 reuse_state: false
-run_id: 13
+run_id: 22
 show_plot: true
-time_lim: 100
+stop_conditions:
+  max_gen: 50
+  max_no_success: 50
+  time_lim: 100

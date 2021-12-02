@@ -107,10 +107,9 @@ class Config:
 def get_configuration(config_file):
     """Set the parameters for this run.
 
-    :param config_file: Filename to the yaml configuration
-    :type config_file: str
-    :return: object with all the configuration parameters
-    :rtype: Config
+    @param config_file: Filename to the yaml configuration
+    @type config_file: str
+    @return: object with all the configuration parameters
     """
 
     # Get parameters from config file
@@ -156,26 +155,26 @@ def get_configuration(config_file):
 
     c = Config()
     # Set variables to terminal input if possible, otherwise use config file
-    c.cluster_size = p.cluster_size or yaml_conf['cluster_size']
-    c.pop_size = p.pop_size or yaml_conf['pop_size']
-    c.fitness_func = p.fitness_func or yaml_conf['fitness_func']
-    c.mating_method = p.mating_method or yaml_conf['mating_method']
-    c.children_perc = p.children_perc or yaml_conf['children_perc']
-    c.cluster_radius = p.cluster_radius or yaml_conf['cluster_radius']
-    c.max_no_success = p.max_no_success or yaml_conf['max_no_success']
-    c.max_gen = p.max_gen or yaml_conf['max_gen']
-    c.dE_thr = p.delta_energy_thr or yaml_conf['delta_energy_thr']
+    c.cluster_size = p.cluster_size or yaml_conf['general']['cluster_size']
+    c.dE_thr = p.delta_energy_thr or yaml_conf['general']['delta_energy_thr']
+    c.cluster_radius = p.cluster_radius or yaml_conf['general']['cluster_radius']
+    c.pop_size = p.pop_size or yaml_conf['general']['pop_size']
+    c.children_perc = p.children_perc or yaml_conf['mating']['children_perc']
+    c.fitness_func = p.fitness_func or yaml_conf['mating']['fitness_func']
+    c.mating_method = p.mating_method or yaml_conf['mating']['mating_method']
+    c.max_gen = p.max_gen or yaml_conf['stop_conditions']['max_gen']
+    c.max_no_success = p.max_no_success or yaml_conf['stop_conditions']['max_no_success']
+    c.time_lim = p.time_lim or yaml_conf['stop_conditions']['time_lim']
+    c.results_dir = p.results_dir or yaml_conf['results']['results_dir']
+    c.db_file = p.db_file or yaml_conf['results']['db_file']
     c.reuse_state = p.reuse_state or yaml_conf['reuse_state']
     c.show_plot = p.show_plot or yaml_conf['show_plot']
-    c.db_file = p.db_file or yaml_conf['db_file']
-    c.results_dir = p.results_dir or yaml_conf['results_dir']
     c.run_id = p.run_id or yaml_conf['run_id']
-    c.time_lim = p.time_lim or yaml_conf['time_lim']
 
     # Increment run_id for next run
     yaml_conf['run_id'] += 1
     with open(config_file, 'w') as f:
-        yaml.dump(yaml_conf, f)
+        yaml.dump(yaml_conf, f, default_style=False)
 
     return c
 

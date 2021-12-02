@@ -5,25 +5,20 @@ The parent selection can happen in one of two ways: Roulette wheel or tournament
 When there are enough parents, the children are created one by one.
 """
 
-"""
-NOTES here
-    * TODO:
-"""
-
-
-
-
 import numpy as np
 from ase import Atoms
 from typing import List
 import math as m
-def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
-    """Making child from two parents
 
-    :param parent1: First parent cluster
-    :param parent2: Second parent cluster
-    :param atol:  (Default value = 1e-8)
-    :returns: child-> Offspring cluster
+
+def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
+    """
+    Making child from two parents
+
+    @param parent1: First parent cluster
+    @param parent2: Second parent cluster
+    @param atol:  (Default value = 1e-8)
+    @return: child -> Offspring cluster
 
     """
     if len(parent1.positions) != len(parent2.positions):
@@ -59,22 +54,21 @@ def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
         print("PROBLEM IN make_child: too many atoms in the child.")
         return None
 
-
-    child = Atoms('H'+str(len(coords)), coords)
+    child = Atoms('H' + str(len(coords)), coords)
     return child
 
 
 def mating(pop, pop_fitness, child_perc, method="roulette",
            tournament_size=2) -> List[Atoms]:
-    """Generate children for the given population
+    """
+    Generate children for the given population
 
-    :param population: Pulation
-    :param population_fitness: the fitness values
-    :param children_perc: : fraction of the population in [0, 1]
-    :param method: in {"roulette", "tournament"} (Default value = "roulette")
-    :param tournament_size: parents per tournament (Default value = 2)
-    :returns: children ([Atoms])
-
+    @param population: Pulation
+    @param population_fitness: the fitness values
+    @param children_perc: : fraction of the population in [0, 1]
+    @param method: in {"roulette", "tournament"} (Default value = "roulette")
+    @param tournament_size: parents per tournament (Default value = 2)
+    @return: children ([Atoms])
     """
 
     num_children = m.ceil(child_perc * len(pop))
@@ -88,15 +82,15 @@ def mating(pop, pop_fitness, child_perc, method="roulette",
         while len(parents) < num_children * 2:
             if method == "roulette":
                 # Pick one of the clusters
-                cluster_i = np.random.randint(0, len(pop)-1)
+                cluster_i = np.random.randint(0, len(pop) - 1)
 
                 # Randomly decide if it can be a parent or not.
                 if pop_fitness[cluster_i] > np.random.random():
                     parents.append(pop[cluster_i])
 
             elif method == "tournament":
-                # Pick a set of cluster indices. FIXME: Prevent twice the same.
-                subset_i = [np.random.randint(0, len(pop)-1)
+                # Pick a set of cluster indices. TODO: Prevent twice the same.
+                subset_i = [np.random.randint(0, len(pop) - 1)
                             for i in range(tournament_size)]
                 subset_fitness = [pop_fitness[i] for i in subset_i]
 

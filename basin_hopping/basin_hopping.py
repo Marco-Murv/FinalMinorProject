@@ -153,13 +153,16 @@ class BasinHopping:
             atoms = COMM.gather(self.atoms)
             if atoms is not None:
                 try:
-                    index = np.argmin([atom.get_potential_energy() for atom in atoms])
+                    index = np.nanargmin([atom.get_potential_energy() for atom in atoms])
                 except ValueError:
                     index = 0
                 min_atoms = atoms[index]
             else:
                 min_atoms = None
-            self.atoms = COMM.bcast(min_atoms)
+            # Stop condition
+            stop = (stop_steps is not None and stop_step_count >= stop_steps) or (stop_time is not None and perf_counter() - t0 >= stop_time)
+            # Broadcast minimum
+            self.atoms, stop = COMM.bcast((min_atoms, stop))
             # Update potential energy
             new_potential_energy = self.atoms.get_potential_energy()
             # Check if new global minimum was found
@@ -189,8 +192,6 @@ class BasinHopping:
             else:
                 self.atoms.set_positions(old_positions)
             # Stop condition
-            stop = (stop_steps is not None and stop_step_count >= stop_steps) or (stop_time is not None and perf_counter() - t0 >= stop_time)
-            stop = COMM.bcast(stop)
             if stop: break
         
         if verbose and rank == 0:
@@ -317,36 +318,40 @@ def main(**kwargs):
         print(f"Global minimum = {min_potential_energy}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.")
+    parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.", usage="%(prog)s (-f CONFIG | -n CLUSTER_SIZE) [options]", add_help=False)
     # Require either a config file or the cluster size
-    config_or_size = parser.add_mutually_exclusive_group(required=True)
+    config_group = parser.add_argument_group("required arguments", "One of these arguments must be present")
+    config_or_size = config_group.add_mutually_exclusive_group(required=True)
     config_or_size.add_argument("-f", "--config", type=str, help="The location of the config file")
     config_or_size.add_argument("-n", "--cluster-size", type=int, help="The size of the cluster")
-    # 
-    parser.add_argument("-r", "--radius", type=float, default=1, help="Radius of the sphere the initial atoms configuration is uniformly distributed in")
-    parser.add_argument("-c", "--max-radius", type=float, default=None, help="The maximum radius of the cube to constrain the atoms in. If not set, no constraint is placed on the atoms")
+    # Optional arguments
+    optional_group = parser.add_argument_group("optional arguments")
+    optional_group.add_argument("-r", "--radius", type=float, default=1, help="Radius of the sphere the initial atoms configuration is uniformly distributed in")
+    optional_group.add_argument("-c", "--max-radius", type=float, default=None, help="The maximum radius of the cube to constrain the atoms in. If not set, no constraint is placed on the atoms")
+    optional_group.add_argument("--temperature", type=float, default=100*kB, help="The temperature parameter for the Metropolis acceptance criterion")
+    optional_group.add_argument("--step-size", type=float, default=0.5, help="The initial value of the step size")
+    optional_group.add_argument("--accept-rate", type=float, default=0.5, help="The desired step acceptance rate")
+    optional_group.add_argument("--step-size-factor", type=float, default=0.9, help="The factor to multiply and divide the step size by")
+    optional_group.add_argument("--step-size-interval", type=int, default=50, help="The interval for how often to update the step size")
     #
-    parser.add_argument("-m", "--max-steps", type=int, default=500, help="The maximum number of steps the algorithm will take")
-    parser.add_argument("-ss", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
-    parser.add_argument("-st", "--stop-time", type=int, default=None, help="The maximum amount of time, in seconds, the algorithm will run for before stopping. If not set, the algorithm will run for the maximum number of steps")
-    #
-    parser.add_argument("--temperature", type=float, default=100*kB, help="The temperature parameter for the Metropolis acceptance criterion")
-    parser.add_argument("--step-size", type=float, default=0.5, help="The initial value of the step size")
-    parser.add_argument("--accept-rate", type=float, default=0.5, help="The desired step acceptance rate")
-    parser.add_argument("--step-size-factor", type=float, default=0.9, help="The factor to multiply and divide the step size by")
-    parser.add_argument("--step-size-interval", type=int, default=50, help="The interval for how often to update the step size")
-    #
-    filter_types = parser.add_mutually_exclusive_group()
+    optional_group.add_argument("-m", "--max-steps", type=int, default=500, help="The maximum number of steps the algorithm will take")
+    optional_group.add_argument("-ss", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
+    optional_group.add_argument("-st", "--stop-time", type=int, default=None, help="The maximum amount of time, in seconds, the algorithm will run for before stopping. If not set, the algorithm will run for the maximum number of steps")
+    # Filter arguments
+    filter_group = parser.add_argument_group("filter arguments")
+    filter_types = filter_group.add_mutually_exclusive_group()
     filter_types.add_argument("-fn", "--no-filter", action="store_const", dest="filter_type", const=None, default=None, help="Use no filter")
     filter_types.add_argument("-fs", "--filter-significant-figures", action="store_const", dest="filter_type", const="s", help="Use significant figures filter")
     filter_types.add_argument("-fd", "--filter-difference", action="store_const", dest="filter_type", const="d", help="Use difference filter")
-    parser.add_argument("-sf", "--significant-figures", type=int, default=2, help="Significant figures to round the potential energy to to check for uniqueness")
-    parser.add_argument("-d", "--difference", type=float, default=0.1, help="Minimum potential energy difference between unique local minima to check for uniqueness")
-    #
-    parser.add_argument("-db", "--database", default=None, help="Database file for storing global minima")
-    parser.add_argument("-tr", "--trajectory", default=None, help="Trajectory file for storing local minima")
-    parser.add_argument("-trf", "--filtered-trajectory", default=None, help="Trajectory file for storing filtered local minima. If None, filtered local minima are stored in the original trajectory file")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Print information about each step")
+    filter_group.add_argument("-sf", "--significant-figures", type=int, default=2, help="Significant figures to round the potential energy to to check for uniqueness")
+    filter_group.add_argument("-d", "--difference", type=float, default=0.1, help="Minimum potential energy difference between unique local minima to check for uniqueness")
+    # Logging settings
+    logging_group = parser.add_argument_group("logging & help")
+    logging_group.add_argument("-h", "--help", action="help", help="show this help message and exit")
+    logging_group.add_argument("-v", "--verbose", action="store_true", help="Print information about each step")
+    logging_group.add_argument("-db", "--database", default=None, help="Database file for storing global minima")
+    logging_group.add_argument("-tr", "--trajectory", default=None, help="Trajectory file for storing local minima")
+    logging_group.add_argument("-trf", "--filtered-trajectory", default=None, help="Trajectory file for storing filtered local minima. If None, filtered local minima are stored in the original trajectory file")
 
     # Parse args
     args = parser.parse_args()
