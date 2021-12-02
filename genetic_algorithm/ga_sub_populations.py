@@ -297,8 +297,16 @@ def ga_sub_populations():
     # =========================================================================
     # Initial population and variables
     # =========================================================================
-    # TODO: Add check for >1 pop size!
     sub_pop_size = np.ceil(c.pop_size / num_procs).astype(int)
+
+    # Check for sufficiently large sub-population size, abort if not large enough (>= 2)
+    if sub_pop_size < 2:
+        if rank == 0:
+            debug("The sub-population size for each processor is less than 2 after splitting the entire population!")
+            debug("Please provide a larger population size.")
+            debug("Aborting the program...")
+        MPI.Finalize()
+        return
 
     pop = generate_population(sub_pop_size, c.cluster_size, c.cluster_radius)
     energies = optimise_local(pop, c.calc, c.local_optimiser)
