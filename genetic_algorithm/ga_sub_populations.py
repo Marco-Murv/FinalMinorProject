@@ -183,7 +183,7 @@ def one_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_right,
     """
 
     # Number of clusters to be exchanged with a single neighbour.
-    num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int)  # TODO: how many to swap?
+    num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int)
     rng = np.random.default_rng()
     cluster_indices = rng.choice(sub_pop_size, size=num_exchanges, replace=False)
 
@@ -232,7 +232,7 @@ def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, s
 
     num_procs = comm.Get_size()
     left_neighb = (rank - 1) % num_procs
-    left_msg = [pop[i] for i in cluster_indices[:(num_exchanges // 2)]] # TODO: encountered a rare IOOB error once?
+    left_msg = [pop[i] for i in cluster_indices[:(num_exchanges // 2)]]
     right_neighb = (rank + 1) % num_procs
     right_msg = [pop[i] for i in cluster_indices[(num_exchanges // 2):]]
 
@@ -258,6 +258,59 @@ def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, s
     energies = [cluster.get_potential_energy() for cluster in pop]
 
     return pop, energies, send_req_left, send_req_right
+
+
+def sync_before_exchange(start_time, gen_no_success, c, rank, comm):
+    """
+    Synchronises all processes before starting the cluster exchange process.
+    If the maximum time limit has been reached while waiting, then return abort code 0.
+    If maximum generations without a new global minimum on any processor has been reached, return 1.
+    Else, if everything is successful, return 2.
+
+    @param start_time: start time of the algorithm
+    @param gen_no_success: the number of generations without a new global minimum found
+    @param c: the configuration object containing the run parameters
+    @param rank: rank of the current process
+    @param comm: MPI communication
+    @return: abort code 0, 1, or 2
+    """
+
+    abort = 2
+    req_barr = comm.Ibarrier()
+    while not req_barr.get_status():
+        # Check whether the time limit has been reached
+        if (MPI.Wtime() - start_time) > c.time_lim:
+            abort = 0
+            return abort
+        time.sleep(0.001)
+
+    # Check whether max number of generations have passed without improvements for any processor
+    gen_no_success = np.array([gen_no_success], dtype='i')
+    no_success_arr = np.empty([comm.Get_size(), 1], dtype='i')
+    comm.Gather(gen_no_success, no_success_arr, root=0)
+    if rank == 0:
+        if (no_success_arr > c.max_exch_no_success * c.gens_until_exchange).all():
+            abort = 1
+
+    abort = comm.bcast(abort, root=0)
+    return abort
+
+
+def save_to_traj(local_min, c):
+    """
+    Saves the found local minima to a trajectory file in the folder designated for results.
+
+    @param local_min: the list of local minima from the algorithm run
+    @param c: configuration file containing the input parameters
+    @return:
+    """
+    traj_file_path = os.path.join(os.path.dirname(__file__), f"{c.results_dir}/ga_sub_pop_{c.cluster_size}.traj")
+    traj_file = Trajectory(traj_file_path, 'w')
+    for cluster in local_min:
+        traj_file.write(cluster)
+    traj_file.close()
+
+    return
 
 
 def ga_sub_populations():
@@ -315,76 +368,38 @@ def ga_sub_populations():
     best_min = pop[0]
     local_min = [pop[0]]
 
-    # Number of generations until cluster exchange happens
-    exchange_gen = 10
-
-    # Number of cluster exchanges without new lowest minima until algorithm abortion
-    # Processor with rank 0 keeps track of this
-    if rank == 0:
-        max_num_exchanges = 5
-        no_success_processes = np.zeros((num_procs, 1), dtype=int)
-
-    # TODO: implement system for aborting when this number is reached
-    # Send gen_no_success to rank 0, stores it in array with len(num_procs), if limit reached then abort algo
-    # special abort tag, non-blocking recv for each process, stop looping if a msg been received
-
     # =========================================================================
     # Main loop
     # =========================================================================
     # Keep track of iterations
     gen = 0
     gen_no_success = 0
-    gen_no_success_buffer = 0
+
+    # Abort codes: 0 for time limit reached, 1 for max generations without improvement, 2 for no stopping condition yet
+    abort = 2
 
     # Used for swapping random clusters between sub-populations
     send_req_left = None
     send_req_right = None
 
-    # Non-blocking recv message waiting for potential abortion message (tag = 0) from processor 0
-    abort = np.ones(1, dtype=int)
-    if rank != 0:
-        send_req_abort = None  # Rename this prob
-        comm.Irecv(abort, source=0, tag=0)
-
-    # TODO: using max_gen as in normal GA may lead to errors with message passing when sub-population is stopped
     while gen < c.max_gen:
-        # Processor 0 check for stopping condition met or not and send abort msg if needed
-
-        # If algo abort condition is met, set stopping condition to true
+        # If max time has been reached, set stopping condition to 0
         if (MPI.Wtime() - start_time) > c.time_lim:
-            print(f"\t\t\tGen {gen} processor {rank} reached time lim!")
-            abort[0] = 0
-
-        if abort[0] == 0:
-            print(f"Processor {rank} aborted!")
+            abort = 0
+        if abort == 0:
+            debug(f"Processor {rank} aborted due to time limit!")
             break
 
         # Exchange clusters with neighbouring processors
-        if (gen % exchange_gen) == 0:
+        if (gen % c.gens_until_exchange) == 0:
             # Synchronise all processors before communication to make sure they all abort simultaneously before comms
-            req_barr = comm.Ibarrier()
-            while not req_barr.get_status():
-                if (MPI.Wtime() - start_time) > c.time_lim:
-                    abort[0] = 0
-                    break
-                time.sleep(0.001)
-            if abort[0] == 0:
+            abort = sync_before_exchange(start_time, gen_no_success, c, rank, comm)
+            if abort == 0:
+                debug(f"Processor {rank} aborted due to time limit!")
                 break
-
-            # Send gen_no_success values to processor 0
-            if rank != 0:
-                if send_req_abort is not None:
-                    send_req_abort.wait()
-                # print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
-                gen_no_success_buffer = np.array([gen_no_success], dtype=int)
-                send_req_abort = comm.Isend(gen_no_success_buffer, dest=0, tag=3)
-
-            else:  # Processor 0
-                # print(f"\t\t Gen {gen} processor {rank} gen_no_success: {gen_no_success}")
-                no_success_processes[0] = np.array(gen_no_success, dtype=int)
-                for i in range(1, num_procs):
-                    comm.Recv(no_success_processes[i], source=i, tag=3)
-                # print(f"\t\t Gen {gen} processor {rank} array: {no_success_processes}")
+            if abort == 1:
+                debug(f"Processor {rank} aborted in gen {gen} due to max generations without success reached!")
+                break
 
             # Exchange clusters with both neighbouring processors
             pop, energies, send_req_left, send_req_right = bi_directional_exchange(pop, sub_pop_size, gen, comm, rank,
@@ -430,9 +445,8 @@ def ga_sub_populations():
 
     # TODO: nicer to make separate function for this
     if rank == 0:
-        debug("All results have been combined!")
         local_min = flatten_list(local_min)
-
+        debug("All results have been combined!")
         total_time = MPI.Wtime() - start_time
         print(f"\nExecution time for sub-population GA: {total_time}")
 
@@ -441,11 +455,7 @@ def ga_sub_populations():
         process_data.print_stats(local_min)
 
         # Write all local minima to trajectory file
-        traj_file_path = os.path.join(os.path.dirname(__file__), f"{c.results_dir}/ga_sub_pop_{c.cluster_size}.traj")
-        traj_file = Trajectory(traj_file_path, 'w')
-        for cluster in local_min:
-            traj_file.write(cluster)
-        traj_file.close()
+        save_to_traj(local_min, c)
 
         # Connect to database
         db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)
