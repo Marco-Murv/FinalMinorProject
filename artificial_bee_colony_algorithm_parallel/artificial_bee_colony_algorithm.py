@@ -19,6 +19,7 @@ import process
 import time
 from mpi4py import MPI
 from ase.io.trajectory import Trajectory
+from ase.visualize import view
 
 cluster_str = 'H'
 
@@ -206,7 +207,7 @@ def artificial_bee_colony_algorithm():
         # configure db
         db = ase.db.connect(os.path.join(os.path.dirname(__file__), "artificial_bee_colony_algorithm_results.db"))
         # Parse possible input, otherwise use default parameters
-        p = get_configuration('run_config.yaml')
+        p = get_configuration('config/run_config.yaml')
         config_info(p)
         # generate initial population
         population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius)
@@ -267,11 +268,12 @@ def artificial_bee_colony_algorithm():
         local_minima = process.select_local_minima(population)
         process.print_stats(local_minima)
 
-        trajFile = Trajectory(f"ga_{p.cluster_size}.traj", 'w')
+        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj", 'w')
         for cluster in local_minima:
-            trajFile.write(cluster)
-        trajFile.close()
-
+            trajectory.write(cluster)
+        trajectory.close()
+        trajectory = Trajectory(f"abc_{p.cluster_size}.traj")
+        view(trajectory)
         db_start_time = MPI.Wtime()
         store_results_database(local_minima, db, p, p.cycle)
         debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
