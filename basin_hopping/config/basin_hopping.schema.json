@@ -110,6 +110,11 @@
             "type": "boolean",
             "description": "Print information about each step",
             "default": true
+        },
+        "view_results": {
+            "type": "boolean",
+            "description": "Open ase gui after completion",
+            "default": true
         }
     },
     "required": ["cluster_size"],
