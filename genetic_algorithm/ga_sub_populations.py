@@ -10,25 +10,162 @@ diversity.
 
 import os
 import sys
-import inspect
-import time
-
 import ase
+import time
+import yaml
+import inspect
+import argparse
 import numpy as np
 
-from ase.io import Trajectory
-from genetic_algorithm import config_info, debug, generate_population
-from genetic_algorithm import get_configuration, natural_selection_step
-from genetic_algorithm import optimise_local, fitness, get_mutants
-from genetic_algorithm import store_results_database
-from mating import mating
-from ga_distributed import flatten_list
 from mpi4py import MPI
+from mating import mating
+from ase.io import Trajectory
+from ase.optimize import LBFGS
+from dataclasses import dataclass
+from datetime import datetime as dt
+from ga_distributed import flatten_list
+from ase.calculators.lj import LennardJones
+from genetic_algorithm import debug, generate_population
+from genetic_algorithm import natural_selection_step
+from genetic_algorithm import optimise_local, fitness, get_mutants
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 import process_data
+
+
+def config_info(config):
+    """
+    Log the most important configuration info to stdout.
+    """
+    timestamp = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    n = 63
+    print()
+    print(" ---------------------------------------------------------------- ")
+    print(f"| {f'Parallel Global Geometry Optimisation':{n}s}|")
+    print(f"| {f'Genetic Algorithm':{n}s}|")
+    print(" ================================================================ ")
+    print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
+    print(f"| {f'cluster size       : {config.cluster_size}':{n}s}|")
+    print(f"| {f'Population size    : {config.pop_size}':{n}s}|")
+    print(f"| {f'Fitness function   : {config.fitness_func}':{n}s}|")
+    print(f"| {f'Maximum generations: {config.max_gen}':{n}s}|")
+    print(f"| {f'Max exchanges wo success : {config.max_exch_no_success}':{n}s}|")
+    print(" ---------------------------------------------------------------- ")
+
+
+@dataclass
+class Config:
+    cluster_size: int = None
+    pop_size: int = None
+    max_exch_no_success: int = None
+    gens_until_exchange: int = None
+    fitness_func: str = None
+    mating_method: str = None
+    results_dir: str = None
+    children_perc: float = None
+    cluster_radius: float = None
+    max_gen: int = None
+    dE_thr: float = None
+    run_id: int = None
+    db_file: str = None
+    time_lim: float = None
+    calc = LennardJones(sigma=1.0, epsilon=1.0)
+    local_optimiser = LBFGS
+
+
+def get_configuration(config_file):
+    """
+    Set the parameters for this run.
+
+    @param config_file: Filename to the yaml configuration
+    @type config_file: str
+    @return: object with all the configuration parameters
+    """
+
+    # Get parameters from config file
+    config_file = os.path.join(os.path.dirname(__file__), config_file)
+    with open(config_file) as f:
+        yaml_conf = yaml.safe_load(os.path.expandvars(f.read()))
+
+    # Create parser for terminal input
+    parser = argparse.ArgumentParser(description='Genetic Algorithm PGGO')
+
+    parser.add_argument('--cluster_size', type=int, metavar='',
+                        help='Number of atoms per cluster')
+    parser.add_argument('--pop_size', type=int, metavar='',
+                        help='Number of clusters in the population')
+    parser.add_argument('--fitness_func', metavar='',
+                        help='Fitness function')
+    parser.add_argument('--mating_method', metavar='',
+                        help='Mating Method')
+    parser.add_argument('--children_perc', type=float, metavar='',
+                        help='Fraction of population that will have a child')
+    parser.add_argument('--cluster_radius', type=float, metavar='',
+                        help='Dimension of initial random clusters')
+    parser.add_argument('--gens_until_exchange', type=int, metavar='',
+                        help='Number of generations each sub-population runs before exchanging clusters')
+    parser.add_argument('--max_exchanges_no_success', type=int, metavar='',
+                        help='Number of consecutive cluster exchange rounds without any improvements')
+    parser.add_argument('--max_gen', type=int, metavar='',
+                        help='Maximum number of generations')
+    parser.add_argument('--delta_energy_thr', type=float, metavar='',
+                        help='Minimum difference in energy between clusters')
+    parser.add_argument('--db_file', type=str, metavar='',
+                        help="The database file to write results to")
+    parser.add_argument('--results_dir', type=str, metavar='',
+                        help="Directory to store results")
+    parser.add_argument('--run_id', type=int, metavar='',
+                        help="ID for the current run. Increments automatically")
+    parser.add_argument('--time_lim', type=float, metavar='',
+                        help="Time limit for the algorithm")
+
+    p = parser.parse_args()
+
+    c = Config()
+    # Set variables to terminal input if possible, otherwise use config file
+    c.cluster_size = p.cluster_size or yaml_conf['general']['cluster_size']
+    c.dE_thr = p.delta_energy_thr or yaml_conf['general']['delta_energy_thr']
+    c.cluster_radius = p.cluster_radius or yaml_conf['general']['cluster_radius']
+    c.pop_size = p.pop_size or yaml_conf['general']['pop_size']
+    c.gens_until_exchange = p.gens_until_exchange or yaml_conf['general']['gens_until_exchange']
+    c.children_perc = p.children_perc or yaml_conf['mating']['children_perc']
+    c.fitness_func = p.fitness_func or yaml_conf['mating']['fitness_func']
+    c.mating_method = p.mating_method or yaml_conf['mating']['mating_method']
+    c.max_gen = p.max_gen or yaml_conf['stop_conditions']['max_gen']
+    c.max_exch_no_success = p.max_exchanges_no_success or yaml_conf['stop_conditions']['max_exchanges_no_success']
+    c.time_lim = p.time_lim or yaml_conf['stop_conditions']['time_lim']
+    c.results_dir = p.results_dir or yaml_conf['results']['results_dir']
+    c.db_file = p.db_file or yaml_conf['results']['db_file']
+    c.run_id = p.run_id or yaml_conf['run_id']
+
+    # Increment run_id for next run
+    yaml_conf['run_id'] += 1
+    with open(config_file, 'w') as f:
+        yaml.dump(yaml_conf, f, default_style=False)
+
+    return c
+
+
+def store_results_database(global_min, local_min, db, c):
+    """
+    Writes GA results to the database.
+
+    @param global_min: the global minimum cluster
+    @param local_min: list of all local minima found
+    @param db: the database to write to
+    @param c: the configuration information of the GA run
+    @return: exit code 0
+    """
+    db.write(global_min, global_min=True, pop_size=c.pop_size, cluster_size=c.cluster_size, max_gens=c.max_gen,
+             max_exch_no_success=c.max_exch_no_success, time_lim=c.time_lim, run_id=c.run_id)
+
+    for cluster in local_min:
+        db.write(cluster, global_min=False, pop_size=c.pop_size, cluster_size=c.cluster_size, max_gens=c.max_gen,
+                 max_exch_no_success=c.max_exch_no_success, time_lim=c.time_lim, run_id=c.run_id)
+
+    return 0
 
 
 def one_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_right, perc_pop_exchanged=0.2):
@@ -88,10 +225,8 @@ def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, s
     @return: population with the newly received clusters and corresponding energies
     """
 
-    print(f"\tGen {gen} processor {rank} starting comms!")
-
     # Number of clusters to be exchanged with a single neighbour.
-    num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int) * 2  # TODO: how many to swap?
+    num_exchanges = np.ceil(sub_pop_size * perc_pop_exchanged).astype(int) * 2
     rng = np.random.default_rng()
     cluster_indices = rng.choice(sub_pop_size, size=num_exchanges, replace=False)
 
@@ -114,11 +249,8 @@ def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, s
     recv_req_left = comm.irecv(source=left_neighb, tag=1)
     recv_req_right = comm.irecv(source=right_neighb, tag=1)
 
-    # TODO: use test here with the abort msg request as well, or maybe use barrier with the abort check?
     left_clusters = recv_req_left.wait()
     right_clusters = recv_req_right.wait()
-
-    debug(f"Generation {gen}: processor {rank} finished all exchanges!")
 
     # Filter out the exchanged clusters and instead add the newly received clusters from neighbouring populations.
     pop = [cluster for idx, cluster in enumerate(pop) if idx not in cluster_indices]
@@ -150,14 +282,13 @@ def ga_sub_populations():
     rank = comm.Get_rank()
     num_procs = comm.Get_size()
 
-    # File to get default configuration / run information
-    config_file = "config/ga_sub_populations_config.yaml"
-
     # Parse possible terminal input and yaml file.
-    # TODO: Bcast config + random state?
-    c = get_configuration(config_file)  # TODO: prob make own get_config, leads to some complications using the GA one
+    c = None
     if rank == 0:
+        config_file = "config/ga_sub_populations_config.yaml"
+        c = get_configuration(config_file)
         config_info(c)
+    c = comm.bcast(c, root=0)
 
     # Ensure all processors have exactly the same starting time for properly synchronising the maximum durations
     start_time = MPI.Wtime()
@@ -166,7 +297,7 @@ def ga_sub_populations():
     # =========================================================================
     # Initial population and variables
     # =========================================================================
-    # TODO: good sub-population size? Atm normal population size divided by number of processes.
+    # TODO: Add check for >1 pop size!
     sub_pop_size = np.ceil(c.pop_size / num_procs).astype(int)
 
     pop = generate_population(sub_pop_size, c.cluster_size, c.cluster_radius)
