@@ -318,7 +318,7 @@ def main(**kwargs):
         print(f"Global minimum = {min_potential_energy}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.", usage="%(prog)s (-f CONFIG | -n CLUSTER_SIZE) [options]", add_help=False)
+    parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.", usage="%(prog)s (-f CONFIG | -n CLUSTER_SIZE) [options]", formatter_class=argparse.ArgumentDefaultsHelpFormatter, add_help=False)
     # Require either a config file or the cluster size
     config_group = parser.add_argument_group("required arguments", "One of these arguments must be present")
     config_or_size = config_group.add_mutually_exclusive_group(required=True)
