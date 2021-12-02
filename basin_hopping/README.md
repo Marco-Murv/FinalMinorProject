@@ -86,6 +86,7 @@ filter arguments:
 logging & help:
   -h, --help            show this help message and exit
   -v, --verbose         Print information about each step (default: False)
+  -vr, --view-results   Open ase gui after completion (default: False)
   -db DATABASE, --database DATABASE
                         Database file for storing global minima (default:
                         None)
