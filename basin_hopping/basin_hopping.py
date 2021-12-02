@@ -172,7 +172,7 @@ class BasinHopping:
             # Stop condition
             stop = (stop_steps is not None and stop_step_count >= stop_steps) or (stop_time is not None and perf_counter() - t0 >= stop_time)
             # Broadcast minimum
-            self.atoms, new_potential_energy, stop = COMM.bcast((min_atoms, self.atoms.get_potential_energy(), stop))
+            self.atoms, new_potential_energy, stop = COMM.bcast((min_atoms, new_potential_energy, stop))
             # Acceptance criterion
             accept = self.accept(self.old_potential_energy, new_potential_energy)
             # Step size adjustment
