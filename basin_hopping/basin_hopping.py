@@ -13,7 +13,6 @@ import yaml
 from ase import Atoms
 from ase.calculators.calculator import Calculator
 from ase.calculators.lj import LennardJones
-from ase.constraints import Hookean
 from ase.db import connect
 from ase.io.trajectory import Trajectory
 from ase.optimize import LBFGS
@@ -266,7 +265,6 @@ class BasinHopping:
         # Calculate uniformly distributed points inside the sphere
         positions = XYZ*U[:,np.newaxis]
         # Initialize atoms object
-        # constraint = [Hookean(i, (0,0,0), 15, max_radius) for i in range(cluster_size)]
         constraint = None if max_radius is None else CubeConstraint(max_radius)
         return Atoms(positions=positions, constraint=constraint, calculator=calculator())
 
