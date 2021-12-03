@@ -2,7 +2,11 @@
 
 Artificial bee Colony algorithm for global geometry optimisation
 
-`artificial_bee_colony_algorithm.py` runs in parallel using 'mpi4py'.   
+`artificial_bee_colony_algorithm.py` runs in parallel using 'mpi4py'.
+
+### Employeed Bee
+### Onlooker Bee
+### Scout Bee
 
 ## Configuration
 The directory `/config` contains a config file for each of
