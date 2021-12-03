@@ -1,6 +1,6 @@
 cluster_radius: 3.5
-cluster_size: 10
-cycle: 20
+cluster_size: 30
+cycle: 50
 is_parallel: 1
 pop_size: 18
-run_id: 411
+run_id: 578
