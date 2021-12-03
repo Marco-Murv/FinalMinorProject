@@ -232,20 +232,16 @@ def artificial_bee_colony_algorithm():
     for i in range(p.cycle):
         i=i+1
         population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser, comm, rank, total_p, p.is_parallel, eb_mutation_size)
+
+        if rank == 0:
+            population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser)
         population = comm.bcast(population, root=0)
-
-        population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser)
-
         population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc, p.local_optimiser, comm, rank, p.is_parallel)
         population = comm.bcast(population, root=0)
 
         if rank == 0:
             if (i % show_calc_min) == 0:
                 debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
-
-        if p.is_parallel == 1:
-            population = comm.bcast(population, root=0)
-            comm.Barrier()
 
         toc = time.perf_counter()
         if toc - tic >= 100: # if algorithm didn't stop after x seconds, stop the algorithm
@@ -284,11 +280,11 @@ def artificial_bee_colony_algorithm():
         local_minima = process.select_local_minima(population)
         process.print_stats(local_minima)
 
-        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj")
+        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj", "w")
         for cluster in local_minima:
             trajectory.write(cluster)
         trajectory.close()
-        trajectory = Trajectory(f"abc_{p.cluster_size}.traj")
+        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj")
         view(trajectory)
         db_start_time = MPI.Wtime()
         store_results_database(local_minima, db, p, p.cycle)
