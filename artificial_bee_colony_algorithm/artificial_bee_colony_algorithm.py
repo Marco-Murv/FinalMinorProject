@@ -257,11 +257,11 @@ def artificial_bee_colony_algorithm():
                 local_minima = process.select_local_minima(population)
                 process.print_stats(local_minima)
 
-                trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj")
+                trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj", "w")
                 for cluster in local_minima:
                     trajectory.write(cluster)
                 trajectory.close()
-                trajectory = Trajectory(f"abc_{p.cluster_size}.traj")
+                trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj")
                 view(trajectory)
                 db_start_time = MPI.Wtime()
                 store_results_database(local_minima, db, p, p.cycle)
