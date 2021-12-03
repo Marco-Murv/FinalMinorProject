@@ -148,7 +148,7 @@ def optimise_local_each(cluster, calc, optimiser) -> Atoms:
         sys.exit("PROGRAM ABORTED: FATAL ERROR")
 
 
-def optimise_local(population, calc, optimiser) -> List[Atoms]:
+def optimise_local(population, calc, optimiser, size) -> List[Atoms]:
     """Local optimisation of the population. The clusters in the population
     are optimised and can be used after this function is called. Moreover,
     calculate and return the final optimised potential energy of the clusters.
@@ -156,27 +156,30 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
         population(List[Atoms]) : List of clusters to be locally optimised
         calc (Calculator)       : ASE Calculator for potential energy (e.g. LJ)
         optimiser (Optimiser)   : ASE Optimiser (e.g. LBFGS)
+        size                    : the amount of processors that call this method
     Returns:
         (List[Atoms])           : Optimised population
     """
 
-    """ Parallel version of this method. Currently gives a "Atom has no calculator" error in employee bee
-    comm = MPI.COMM_WORLD
+    if size == 1: return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
+    else :
+        comm = MPI.COMM_WORLD
 
-    splitted_population = split(population, comm.Get_size()) # divides the array into n parts to divide over processors
-    population = comm.scatter(splitted_population, root=0)
+        splitted_population = split(population, comm.Get_size())  # divides the array into n parts to divide over processors
+        population = comm.scatter(splitted_population, root=0)
 
-    result = []
-    for cluster in population:
-        result.append(optimise_local_each(cluster, calc, optimiser).get_potential_energy())
+        result = []
+        if len(population) != 0:
+            for cluster in population:
+                cluster.calc = calc
+                result.append(optimise_local_each(cluster, calc, optimiser).get_potential_energy())
 
-    optimised_clusters = comm.gather(result, root=0)
-    optimised_clusters = [item for sublist in optimised_clusters for item in sublist]
-
-    return optimised_clusters
-    """
-
-    return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
+        optimised_clusters = comm.gather(result, root=0)
+        if comm.Get_rank() == 0:
+            optimised_clusters = [i for i in optimised_clusters if i]
+            optimised_clusters = [item for sublist in optimised_clusters for item in sublist]
+            return optimised_clusters
+        else: return []
 
 
 def store_results_database(pop, db, c, cycle):
@@ -211,7 +214,7 @@ def artificial_bee_colony_algorithm():
         config_info(p)
         # generate initial population
         population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius)
-        optimise_local(population, p.calc, p.local_optimiser)
+        optimise_local(population, p.calc, p.local_optimiser, 1)
         # Generate initial population and optimise locally
     else:
         db = None
@@ -228,14 +231,15 @@ def artificial_bee_colony_algorithm():
     cycle_start_time = MPI.Wtime()
     for i in range(p.cycle):
         i=i+1
-        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser,
-                                                    comm, rank, total_p, p.is_parallel, eb_mutation_size)
+        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser, comm, rank, total_p, p.is_parallel, eb_mutation_size)
+        population = comm.bcast(population, root=0)
+
+        population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser)
+
+        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc, p.local_optimiser, comm, rank, p.is_parallel)
+        population = comm.bcast(population, root=0)
 
         if rank == 0:
-            population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc,
-                                                        p.local_optimiser)
-            population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size,
-                                                 p.cluster_radius, p.calc, p.local_optimiser)
             if (i % show_calc_min) == 0:
                 debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
 
@@ -245,15 +249,27 @@ def artificial_bee_colony_algorithm():
 
         toc = time.perf_counter()
         if toc - tic >= 100: # if algorithm didn't stop after x seconds, stop the algorithm
-            debug(f"Function time exceeded. Stopping now")
+            if rank == 0:
+                debug(f"Function time exceeded. Stopping now")
 
-            # filter out local minima that are too similar and print out the results
-            local_minima = process.select_local_minima(population)
-            process.print_stats(local_minima)
+                if p.is_parallel == 1:
+                    debug(f"It took {MPI.Wtime() - cycle_start_time} with {total_p} processors")
+                else:
+                    debug(f"It took {MPI.Wtime() - cycle_start_time} without parallelization")
 
-            db_start_time = MPI.Wtime()
-            store_results_database(local_minima, db, p, p.cycle)
-            debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
+                # filter out local minima that are too similar and print out the results
+                local_minima = process.select_local_minima(population)
+                process.print_stats(local_minima)
+
+                trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj")
+                for cluster in local_minima:
+                    trajectory.write(cluster)
+                trajectory.close()
+                trajectory = Trajectory(f"abc_{p.cluster_size}.traj")
+                view(trajectory)
+                db_start_time = MPI.Wtime()
+                store_results_database(local_minima, db, p, p.cycle)
+                debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
 
             return
 
@@ -268,7 +284,7 @@ def artificial_bee_colony_algorithm():
         local_minima = process.select_local_minima(population)
         process.print_stats(local_minima)
 
-        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj", 'w')
+        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj")
         for cluster in local_minima:
             trajectory.write(cluster)
         trajectory.close()
