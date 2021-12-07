@@ -447,7 +447,7 @@ def genetic_algorithm() -> None:
             debug("REACHED TIME LIMIT")
             break
 
-        debug(f"Generation {gen:2d} - Population size = {len(pop)}")
+        debug(f"Generation {gen:2d} - Population size = {len(pop)}", end='\r')
 
         # Get fitness values
         pop_fitness = fitness(energies, func=c.fitness_func)
@@ -459,7 +459,7 @@ def genetic_algorithm() -> None:
         # Local minimisation and add to population
         newborns = children + mutants
 
-        debug(f"Local optimisation of {len(newborns)} newborns")
+        #  debug(f"Local optimisation of {len(newborns)} newborns")
         energies += optimise_local(newborns, c.calc, c.local_optimiser)
         pop += newborns
 

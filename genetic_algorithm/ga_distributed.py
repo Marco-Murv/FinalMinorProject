@@ -114,7 +114,7 @@ def ga_distributed():
 
     while not done:
         if rank == 0:
-            debug(f"Generation {gen:2d} - Population size = {len(pop)}")
+            debug(f"Generation {gen:2d} - Population size = {len(pop)}", end='\r')
 
         # Broadcast initial population
         pop = comm.bcast(pop, root=0)

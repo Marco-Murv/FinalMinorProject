@@ -11,7 +11,7 @@ mating:
 results:
   db_file: genetic_algorithm_results.db
   results_dir: results
-run_id: 1
+run_id: 4
 stop_conditions:
   max_exchanges_no_success: 3
   max_gen: 100
