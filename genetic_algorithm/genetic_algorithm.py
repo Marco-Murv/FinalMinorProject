@@ -102,7 +102,7 @@ class Config:
     show_plot: bool = None
     db_file: str = None
     time_lim: float = None
-    calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
+    calc = LennardJones(sigma=1.0, epsilon=1.0)
     local_optimiser = LBFGS
 
 
