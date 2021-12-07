@@ -275,6 +275,8 @@ def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, s
     left_clusters = recv_req_left.wait()
     right_clusters = recv_req_right.wait()
 
+    debug(f"    Generation {gen}: processor {rank} finished all exchanges!")
+
     # Filter out the exchanged clusters and instead add the newly received clusters from neighbouring populations.
     pop = [cluster for idx, cluster in enumerate(pop) if idx not in cluster_indices]
     pop += left_clusters + right_clusters
@@ -358,6 +360,13 @@ def ga_sub_populations():
     rank = comm.Get_rank()
     num_procs = comm.Get_size()
 
+    # Check whether enough processors (> 1)
+    if num_procs < 2:
+        if rank == 0:
+            debug("Please use more than 1 processor for the parallel version!")
+            debug("Aborting...")
+        return
+
     # Parse possible terminal input and yaml file.
     c = None
     if rank == 0:
@@ -425,10 +434,13 @@ def ga_sub_populations():
                 break
 
             # Exchange clusters with both neighbouring processors
-            pop, energies, send_req_left, send_req_right = bi_directional_exchange(pop, sub_pop_size, gen, comm, rank,
-                                                                                   send_req_left, send_req_right)
-            # Exchange clusters with only a single neighbour
-            # pop, energies, send_req_right = one_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_right)
+            if num_procs > 2:
+                pop, energies, send_req_left, send_req_right \
+                    = bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, send_req_right)
+            # Exchange clusters with only a single neighbour if 2 processors
+            else:
+                pop, energies, send_req_right = one_directional_exchange(pop, sub_pop_size, gen, comm, rank,
+                                                                         send_req_right)
 
         # Get fitness values
         pop_fitness = fitness(energies, func=c.fitness_func)
