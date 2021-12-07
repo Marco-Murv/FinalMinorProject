@@ -6,6 +6,29 @@ Sub populations parallelisation of the Genetic Algorithm.
 A number of separate GA's will be run on multiple processors, with each processor having their own small, independent
 sub-population. The different processors can exchange pairs of clusters with each other to maintain population
 diversity.
+
+In order to run the sub-population GA algorithm, you need to use the ga_sub_populations.yaml file.
+An example configuration:
+
+    general:
+      cluster_radius: 2.0
+      cluster_size: 10
+      delta_energy_thr: 0.1
+      gens_until_exchange: 10
+      pop_size: 20
+    mating:
+      children_perc: 0.8
+      fitness_func: exponential
+      mating_method: roulette
+    results:
+      db_file: genetic_algorithm_results.db
+      results_dir: results
+    run_id: 1
+    stop_conditions:
+      max_exchanges_no_success: 3
+      max_gen: 100
+      time_lim: 600
+
 """
 
 import os
@@ -443,7 +466,6 @@ def ga_sub_populations():
     # =========================================================================
     local_min = comm.gather(local_min, root=0)
 
-    # TODO: nicer to make separate function for this
     if rank == 0:
         local_min = flatten_list(local_min)
         debug("All results have been combined!")
