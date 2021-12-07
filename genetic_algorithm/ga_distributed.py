@@ -2,35 +2,52 @@
 
 """
 Distributed parallelisation of the Genetic Algorithm
-"""
 
-"""
-TODO:
-
+This program requires a file called `ga_config.yaml` in the same directory.
+Example ga_config.yaml:
+```yaml
+    general:
+        cluster_radius: 2.0
+        cluster_size: 4
+        delta_energy_thr: 0.1
+        pop_size: 5
+    mating:
+        children_perc: 0.8
+        fitness_func: exponential
+        mating_method: roulette
+    results:
+        db_file: genetic_algorithm_results.db
+        results_dir: results
+    reuse_state: false
+    run_id: 22
+    show_plot: true
+    stop_conditions:
+        max_gen: 50
+        max_no_success: 50
+        time_lim: 100
+```
 """
 
 import os
 import sys
 import inspect
+import numpy as np
+from mpi4py import MPI
+
+import ase
+from ase.io.trajectory import Trajectory
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
-import ase
-from ase.io.trajectory import Trajectory
-
 import process_data
-import genetic_algorithm as ga
 from mating import mating
-
+import genetic_algorithm as ga
 from genetic_algorithm import config_info, debug, fitness, generate_population
 from genetic_algorithm import get_configuration, natural_selection_step
 from genetic_algorithm import optimise_local, fitness, get_mutants
 from genetic_algorithm import store_results_database
-
-import numpy as np
-from mpi4py import MPI
 
 
 def flatten_list(lst):
@@ -47,7 +64,6 @@ def ga_distributed():
     """
     Main genetic algorithm (distributed)
     """
-
     np.seterr(divide='raise')
 
     # Initialising MPI
@@ -61,6 +77,7 @@ def ga_distributed():
         config_file = "config/ga_distributed_config.yaml"
         c = get_configuration(config_file)
 
+    # Distribute configuration data to all of the processors
     c = comm.bcast(c, root=0)
 
     # Start timer
@@ -101,7 +118,7 @@ def ga_distributed():
 
         # Broadcast initial population
         pop = comm.bcast(pop, root=0)
-        energies = comm.bcast(energies, root=0) # TODO: use Bcast instead?
+        energies = comm.bcast(energies, root=0)
 
         # Mating - get new population
         pop_fitness = fitness(energies, c.fitness_func)
@@ -109,7 +126,7 @@ def ga_distributed():
                           num_procs, c.mating_method)
         
         # Define sub-population on every rank (only for mutating)
-        chunk = len(pop) // num_procs  # TODO:
+        chunk = len(pop) // num_procs
         sub_pop = pop[rank * chunk:(rank + 1) * chunk]
 
         # Mutating - get new mutants
@@ -182,5 +199,4 @@ def ga_distributed():
 
 
 if __name__ == "__main__":
-
     ga_distributed()

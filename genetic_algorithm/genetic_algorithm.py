@@ -2,26 +2,29 @@
 
 """
 Genetic algorithm for geometry optimisation of atomic clusters.
-We can add more information later.
 
 This program requires a file called `ga_config.yaml` in the same directory.
 Example ga_config.yaml:
 ```yaml
-    children_perc: 0.8
-    cluster_radius: 2.0
-    cluster_size: 4
-    db_file: genetic_algorithm_results.db
-    delta_energy_thr: 0.1
-    fitness_func: exponential
-    mating_method: roulette
-    max_gen: 50
-    max_no_success: 50
-    pop_size: 5
-    results_dir: ./results
+    general:
+        cluster_radius: 2.0
+        cluster_size: 4
+        delta_energy_thr: 0.1
+        pop_size: 5
+    mating:
+        children_perc: 0.8
+        fitness_func: exponential
+        mating_method: roulette
+    results:
+        db_file: genetic_algorithm_results.db
+        results_dir: results
     reuse_state: false
-    run_id: 1
+    run_id: 22
     show_plot: true
-    time_lim: 100
+    stop_conditions:
+        max_gen: 50
+        max_no_success: 50
+        time_lim: 100
 ```
 """
 
@@ -52,7 +55,6 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 import process_data
-
 
 
 def debug(*args, **kwargs) -> None:
@@ -100,7 +102,7 @@ class Config:
     show_plot: bool = None
     db_file: str = None
     time_lim: float = None
-    calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
+    calc = LennardJones(sigma=1.0, epsilon=1.0)
     local_optimiser = LBFGS
 
 
@@ -188,8 +190,7 @@ def generate_cluster(cluster_size, radius) -> Atoms:
     @param radius: dimension of the space where atoms can be placed.
     @return: new random cluster
     """
-    coords = np.random.uniform(-radius / 2, radius / 2,
-                               (cluster_size, 3)).tolist()
+    coords = np.random.uniform(-radius / 2, radius / 2, (cluster_size, 3)).tolist()
 
     # TODO: Can we use "mathematical dots" instead of H-atoms
     new_cluster = Atoms('H' + str(cluster_size), coords)
@@ -223,9 +224,12 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
     invalid_indices = []
     for idx, cluster in enumerate(population):
         cluster.calc = calc
+
         try:
             optimiser(cluster, maxstep=0.2, logfile=None).run(steps=50)
-        except FloatingPointError:  # deletes cluster from population if division by zero error is encountered.
+        
+        # deletes cluster from pop if division by zero error encountered.
+        except FloatingPointError:
             invalid_indices.append(idx)
             debug("DIVIDE BY ZERO REMOVED FROM POPULATION!")
 
@@ -233,7 +237,6 @@ def optimise_local(population, calc, optimiser) -> List[Atoms]:
             invalid_indices.append(idx)
             debug(f"[ERROR]: CAUGHT EXCEPTION: {e}")
             debug(f"\tREMOVED FROM POPULATION - FIX PROBLEM")
-
 
     return [cluster.get_potential_energy() for idx, cluster in enumerate(population) if idx not in invalid_indices]
 
@@ -274,7 +277,8 @@ def plot_EPP(lowest_energies, highest_energies, average_energies, c):
     @param c: Configuration
     @return:
     """
-    plot_file = os.path.join(os.path.dirname(__file__), f'{c.results_dir}/EPP_run_{c.run_id}.png')
+    plot_file = os.path.join(os.path.dirname(
+        __file__), f'{c.results_dir}/EPP_run_{c.run_id}.png')
     gens = np.arange(0, len(lowest_energies))
 
     plt.figure(1)
@@ -310,7 +314,8 @@ def get_mutants(pop, cluster_radius, cluster_size, p_static=0.05, p_dynamic=0.05
     mutants = mutators.displacement_static(pop, p_static, cluster_radius)
     mutants += mutators.displacement_dynamic(pop, p_dynamic, cluster_radius)
     mutants += mutators.rotation(pop, p_rotation)
-    mutants += mutators.replacement(pop, cluster_size, cluster_radius, p_replacement)
+    mutants += mutators.replacement(pop, cluster_size,
+                                    cluster_radius, p_replacement)
     mutants += mutators.mirror_shift(pop, cluster_size, p_mirror)
 
     return mutants
@@ -339,6 +344,7 @@ def natural_selection_step(pop, energies, pop_size, dE_thr):
         candidate = pop[sorted_i]
         cand_energy = energies[sorted_i]
 
+        # Add candidate if energy not too close to one that is already there
         if abs(cand_energy - new_energies[-1]) > dE_thr:
             new_pop.append(candidate)
             new_energies.append(cand_energy)
@@ -380,7 +386,7 @@ def store_or_reuse_state(reuse=False):
             random_state = np.random.get_state()
             pickle.dump(random_state, f)
     else:
-        debug("REUSING RANDOM STATE FROM PREVIOUS RUN\n")        
+        debug("REUSING RANDOM STATE FROM PREVIOUS RUN\n")
         with open(state_file, 'rb') as f:
             reuse_state = pickle.load(f)
             np.random.set_state(reuse_state)
@@ -461,7 +467,8 @@ def genetic_algorithm() -> None:
         local_min += newborns
 
         # Natural selection
-        pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr)
+        pop, energies = natural_selection_step(
+            pop, energies, c.pop_size, c.dE_thr)
 
         # Store info about lowest, average, and highest energy of this gen for EPP
         lowest_energies.append(energies[0])
@@ -482,19 +489,20 @@ def genetic_algorithm() -> None:
     ga_time = time.time() - ga_start_time
     print(f"\nGenetic Algorithm took {ga_time:.2f} seconds to execute\n")
 
-
     # Store / report
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
 
-    traj_file_path = os.path.join(os.path.dirname(__file__), f"{c.results_dir}/ga_{c.cluster_size}.traj")
+    traj_file_path = os.path.join(os.path.dirname(
+        __file__), f"{c.results_dir}/ga_{c.cluster_size}.traj")
     traj_file = Trajectory(traj_file_path, 'w')
     for cluster in local_min:
         traj_file.write(cluster)
     traj_file.close()
 
     # Connect to database and store results
-    db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)
+    db_file = os.path.join(os.path.dirname(__file__),
+                           c.results_dir + '/' + c.db_file)
     db = ase.db.connect(db_file)
     store_results_database(local_min[0], local_min[1:], db, c)
 
