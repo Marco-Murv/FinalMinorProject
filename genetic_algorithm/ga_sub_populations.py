@@ -306,7 +306,6 @@ def sync_before_exchange(start_time, gen_no_success, c, rank, comm):
         # Check whether the time limit has been reached
         if (MPI.Wtime() - start_time) > c.time_lim:
             abort = 0
-            return abort
         time.sleep(0.001)
 
     # Check whether max number of generations have passed without improvements for any processor
@@ -359,6 +358,8 @@ def ga_sub_populations():
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     num_procs = comm.Get_size()
+
+    print(f"Started sub-populations on processor {rank}!")
 
     # Check whether enough processors (> 1)
     if num_procs < 2:
