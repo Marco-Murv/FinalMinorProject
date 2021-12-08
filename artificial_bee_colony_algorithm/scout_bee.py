@@ -6,7 +6,7 @@ import numpy as np
 from mpi4py import MPI
 
 
-def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, is_parallel):
+def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, energy_diff, energy_abnormal):
     minimal_pe = sys.maxsize  # lowest potential energy
 
     for cluster in pop:
@@ -24,7 +24,7 @@ def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser
     pop = comm.scatter(splitted_pop, root=0)
     result = []
     for cluster in pop:
-        if (cluster.get_potential_energy() / minimal_pe) >= 0.65:
+        if (cluster.get_potential_energy() / minimal_pe) >= energy_abnormal:
             if cluster.get_potential_energy() < 0:
                 result.append(cluster)
     new_pop = comm.gather(result, root=0) # gather the result from all processes to master
@@ -33,7 +33,7 @@ def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser
         new_pop = [item for sublist in new_pop for item in sublist] # flatten array to 1D array
     new_pop = comm.bcast(new_pop)
 
-    energy_diff = 0.04
+    energy_diff =energy_diff
     energies = [cluster.get_potential_energy() for cluster in new_pop]
     combined = list(zip(new_pop, energies))
     minima = np.array(combined, dtype=object)

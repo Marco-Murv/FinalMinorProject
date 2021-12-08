@@ -186,8 +186,6 @@ def store_results_database(pop, db, c, cycle):
     """
     Writes GA results to the database.
 
-    @param global_min: the global minimum cluster
-    @param local_min: list of all local minima found
     @param db: the database to write to
     @param c: the configuration information of the GA run
     @return: exit code 0
@@ -207,8 +205,6 @@ def artificial_bee_colony_algorithm():
     rank = comm.Get_rank()
     total_p = comm.Get_size()
     if rank == 0:
-        # configure db
-        db = ase.db.connect(os.path.join(os.path.dirname(__file__), "artificial_bee_colony_algorithm_results.db"))
         # Parse possible input, otherwise use default parameters
         p = get_configuration('config/run_config.yaml')
         config_info(p)
@@ -217,7 +213,6 @@ def artificial_bee_colony_algorithm():
         optimise_local(population, p.calc, p.local_optimiser, 1)
         # Generate initial population and optimise locally
     else:
-        db = None
         population = None
         p = None
     population = comm.bcast(population, root=0)
@@ -229,46 +224,28 @@ def artificial_bee_colony_algorithm():
     if rank == 0:
         debug(f"Set up took {MPI.Wtime() - setup_start_time}")
     cycle_start_time = MPI.Wtime()
-    for i in range(p.cycle):
-        i=i+1
+    break_loop =False
+    time_out = 20
+    for i in range(1, p.cycle +1):
         population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser, comm, rank, total_p, p.is_parallel, eb_mutation_size)
-
         if rank == 0:
             population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser)
         population = comm.bcast(population, root=0)
-        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc, p.local_optimiser, comm, rank, p.is_parallel)
+        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc, p.local_optimiser, comm, rank, 0.4, 0.65)
         population = comm.bcast(population, root=0)
 
         if rank == 0:
             if (i % show_calc_min) == 0:
                 debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
 
-        toc = time.perf_counter()
-        if toc - tic >= 100: # if algorithm didn't stop after x seconds, stop the algorithm
+        if time.perf_counter() -   tic >= time_out: # if algorithm didn't stop after x seconds, stop the algorithm
             if rank == 0:
                 debug(f"Function time exceeded. Stopping now")
+                break_loop = True
+            break_loop = comm.bcast(break_loop, root=0)
 
-                if p.is_parallel == 1:
-                    debug(f"It took {MPI.Wtime() - cycle_start_time} with {total_p} processors")
-                else:
-                    debug(f"It took {MPI.Wtime() - cycle_start_time} without parallelization")
-
-                # filter out local minima that are too similar and print out the results
-                local_minima = process.select_local_minima(population)
-                process.print_stats(local_minima)
-
-                root_directory = os.path.dirname(__file__)
-                trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj", "w")
-                for cluster in local_minima:
-                    trajectory.write(cluster)
-                trajectory.close()
-                trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj")
-                view(trajectory)
-                db_start_time = MPI.Wtime()
-                store_results_database(local_minima, db, p, p.cycle)
-                debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
-
-            return
+        if break_loop:
+            break
 
     if rank == 0:
         if p.is_parallel == 1:
@@ -281,16 +258,18 @@ def artificial_bee_colony_algorithm():
         local_minima = process.select_local_minima(population)
         process.print_stats(local_minima)
 
-        root_directory = os.path.dirname(__file__)
-        trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj", "w")
+        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj", "w")
         for cluster in local_minima:
             trajectory.write(cluster)
         trajectory.close()
-        trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj")
+        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj")
         view(trajectory)
         db_start_time = MPI.Wtime()
-        store_results_database(local_minima, db, p, p.cycle)
+        store_results_database(local_minima,
+                               ase.db.connect(os.path.join(os.path.dirname(__file__),
+                                                           "artificial_bee_colony_algorithm_results.db")), p, p.cycle)
         debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
+        debug(f"total time took {MPI.Wtime() - setup_start_time}")
 
 
 def split(a, n):

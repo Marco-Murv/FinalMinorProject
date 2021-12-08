@@ -152,26 +152,27 @@ class BasinHopping:
             # Gather results
             atoms = COMM.gather(self.atoms)
             if atoms is not None:
+                potential_energies = [a.get_potential_energy() for a in atoms]
                 try:
-                    index = np.nanargmin([atom.get_potential_energy() for atom in atoms])
+                    index = np.nanargmin(potential_energies)
                 except ValueError:
                     index = 0
                 min_atoms = atoms[index]
+                new_potential_energy = potential_energies[index]
             else:
                 min_atoms = None
+            # Check if new global minimum was found
+            if rank == 0:
+                if new_potential_energy < self.min_potential_energy:
+                    self.min_atoms = self.atoms.copy()
+                    self.min_potential_energy = new_potential_energy
+                    stop_step_count = 0
+                else:
+                    stop_step_count += 1
             # Stop condition
             stop = (stop_steps is not None and stop_step_count >= stop_steps) or (stop_time is not None and perf_counter() - t0 >= stop_time)
             # Broadcast minimum
-            self.atoms, stop = COMM.bcast((min_atoms, stop))
-            # Update potential energy
-            new_potential_energy = self.atoms.get_potential_energy()
-            # Check if new global minimum was found
-            if new_potential_energy < self.min_potential_energy:
-                self.min_atoms = self.atoms.copy()
-                self.min_potential_energy = new_potential_energy
-                stop_step_count = 0
-            else:
-                stop_step_count += 1
+            self.atoms, new_potential_energy, stop = COMM.bcast((min_atoms, new_potential_energy, stop))
             # Acceptance criterion
             accept = self.accept(self.old_potential_energy, new_potential_energy)
             # Step size adjustment
@@ -306,19 +307,20 @@ def main(**kwargs):
             except:
                 db.write(min_atoms)
         # Display global minimum
-        if kwargs.get('filter_type') is not None and kwargs.get('filtered_trajectory') is not None:
-            trajectory = Trajectory(kwargs.get('filtered_trajectory'))
-            view(trajectory)
-        elif kwargs.get('trajectory') is not None:
-            trajectory = Trajectory(kwargs.get('trajectory'))
-            view(trajectory)
-        else:
-            view(min_atoms)
+        if kwargs.get('view_results', False):
+            if kwargs.get('filter_type') is not None and kwargs.get('filtered_trajectory') is not None:
+                trajectory = Trajectory(kwargs.get('filtered_trajectory'))
+                view(trajectory)
+            elif kwargs.get('trajectory') is not None:
+                trajectory = Trajectory(kwargs.get('trajectory'))
+                view(trajectory)
+            else:
+                view(min_atoms)
         
         print(f"Global minimum = {min_potential_energy}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.", usage="%(prog)s (-f CONFIG | -n CLUSTER_SIZE) [options]", add_help=False)
+    parser = argparse.ArgumentParser(description="Run the basin hopping algorithm.", usage="%(prog)s (-f CONFIG | -n CLUSTER_SIZE) [options]", formatter_class=argparse.ArgumentDefaultsHelpFormatter, add_help=False)
     # Require either a config file or the cluster size
     config_group = parser.add_argument_group("required arguments", "One of these arguments must be present")
     config_or_size = config_group.add_mutually_exclusive_group(required=True)
@@ -349,6 +351,7 @@ if __name__ == "__main__":
     logging_group = parser.add_argument_group("logging & help")
     logging_group.add_argument("-h", "--help", action="help", help="show this help message and exit")
     logging_group.add_argument("-v", "--verbose", action="store_true", help="Print information about each step")
+    logging_group.add_argument("-vr", "--view-results", action="store_true", help="Open ase gui after completion")
     logging_group.add_argument("-db", "--database", default=None, help="Database file for storing global minima")
     logging_group.add_argument("-tr", "--trajectory", default=None, help="Trajectory file for storing local minima")
     logging_group.add_argument("-trf", "--filtered-trajectory", default=None, help="Trajectory file for storing filtered local minima. If None, filtered local minima are stored in the original trajectory file")
