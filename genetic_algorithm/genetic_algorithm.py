@@ -447,8 +447,6 @@ def genetic_algorithm() -> None:
             debug("REACHED TIME LIMIT")
             break
 
-        debug(f"Generation {gen:2d} - Population size = {len(pop)}", end='\r')
-
         # Get fitness values
         pop_fitness = fitness(energies, func=c.fitness_func)
         # Mating - get new population

@@ -30,24 +30,24 @@ Example ga_config.yaml:
 
 import os
 import sys
+import ase
 import inspect
 import numpy as np
 from mpi4py import MPI
-
-import ase
 from ase.io.trajectory import Trajectory
 
+
+from mating import mating
+import genetic_algorithm as ga
+from genetic_algorithm import store_results_database
+from genetic_algorithm import optimise_local, fitness, get_mutants
+from genetic_algorithm import get_configuration, natural_selection_step
+from genetic_algorithm import config_info, debug, fitness, generate_population
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
 import process_data
-from mating import mating
-import genetic_algorithm as ga
-from genetic_algorithm import config_info, debug, fitness, generate_population
-from genetic_algorithm import get_configuration, natural_selection_step
-from genetic_algorithm import optimise_local, fitness, get_mutants
-from genetic_algorithm import store_results_database
 
 
 def flatten_list(lst):
@@ -113,9 +113,6 @@ def ga_distributed():
     done = False
 
     while not done:
-        if rank == 0:
-            debug(f"Generation {gen:2d} - Population size = {len(pop)}", end='\r')
-
         # Broadcast initial population
         pop = comm.bcast(pop, root=0)
         energies = comm.bcast(energies, root=0)
@@ -157,7 +154,7 @@ def ga_distributed():
 
             # Store current best
             if energies[0] < best_min[-1].get_potential_energy():
-                debug("New global minimum: ", energies[0])
+                debug(f"New global minimum in generation {gen:2d}: ", energies[0])
                 best_min.append(pop[0])
                 gen_no_success = 0  # This is success, so set to zero.
             else:
