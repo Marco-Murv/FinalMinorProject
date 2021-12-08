@@ -43,6 +43,7 @@ from genetic_algorithm import store_results_database
 from genetic_algorithm import optimise_local, fitness, get_mutants
 from genetic_algorithm import get_configuration, natural_selection_step
 from genetic_algorithm import config_info, debug, fitness, generate_population
+
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
@@ -70,6 +71,7 @@ def ga_distributed():
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     num_procs = comm.Get_size()
+    debug(f"Started ga_distributed from rank {rank}")
 
     # Parse possible terminal input and yaml file.
     c = None

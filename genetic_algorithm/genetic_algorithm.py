@@ -475,7 +475,7 @@ def genetic_algorithm() -> None:
 
         # Store current best
         if energies[0] < best_min.get_potential_energy():
-            debug("New global minimum: ", energies[0])
+            debug(f"New global minimum in generation {gen:2d}: ", energies[0])
             best_min = pop[0]
             gen_no_success = 0  # This is success, so set to zero.
         else:
