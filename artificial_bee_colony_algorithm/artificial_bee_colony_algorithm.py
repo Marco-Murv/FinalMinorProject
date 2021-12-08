@@ -238,7 +238,7 @@ def artificial_bee_colony_algorithm():
             if (i % show_calc_min) == 0:
                 debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
 
-        if time.perf_counter() -   tic >= time_out: # if algorithm didn't stop after x seconds, stop the algorithm
+        if time.perf_counter() - tic >= time_out: # if algorithm didn't stop after x seconds, stop the algorithm
             if rank == 0:
                 debug(f"Function time exceeded. Stopping now")
                 break_loop = True
@@ -258,11 +258,12 @@ def artificial_bee_colony_algorithm():
         local_minima = process.select_local_minima(population)
         process.print_stats(local_minima)
 
-        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj", "w")
+        root_directory = os.path.dirname(__file__)
+        trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj", "w")
         for cluster in local_minima:
             trajectory.write(cluster)
         trajectory.close()
-        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj")
+        trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj")
         view(trajectory)
         db_start_time = MPI.Wtime()
         store_results_database(local_minima,
