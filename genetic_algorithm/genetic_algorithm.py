@@ -30,32 +30,30 @@ Example ga_config.yaml:
 
 import os
 import sys
-import inspect
-import numpy as np
 import yaml
-import matplotlib.pyplot as plt
-import ase.db
-import mutators
-import argparse
+import time
 import ase.db
 import pickle
-import time
+import inspect
+import argparse
+import mutators
+import numpy as np
+from typing import List
+import matplotlib.pyplot as plt
+from dataclasses import dataclass
+from datetime import datetime as dt
 
 from ase import Atoms
+from ase.optimize import LBFGS
 from ase.io.trajectory import Trajectory
 from ase.calculators.lj import LennardJones
-from ase.optimize import LBFGS
-from typing import List
-from mating import mating
-from datetime import datetime as dt
-from dataclasses import dataclass
-import time
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
-import process_data
 
+from mating import mating
+import process_data
 
 def debug(*args, **kwargs) -> None:
     """
@@ -77,6 +75,7 @@ def config_info(config):
     print(f"| {f'Genetic Algorithm':{n}s}|")
     print(" ================================================================ ")
     print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
+    print(f"| {f'Time limit         : {config.time_lim} sec':{n}s}|")
     print(f"| {f'cluster size       : {config.cluster_size}':{n}s}|")
     print(f"| {f'Population size    : {config.pop_size}':{n}s}|")
     print(f"| {f'Fitness function   : {config.fitness_func}':{n}s}|")

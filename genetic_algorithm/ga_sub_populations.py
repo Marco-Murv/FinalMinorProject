@@ -48,8 +48,8 @@ from dataclasses import dataclass
 from datetime import datetime as dt
 from ga_distributed import flatten_list
 from ase.calculators.lj import LennardJones
-from genetic_algorithm import debug, generate_population
 from genetic_algorithm import natural_selection_step
+from genetic_algorithm import debug, generate_population
 from genetic_algorithm import optimise_local, fitness, get_mutants
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -70,6 +70,7 @@ def config_info(config):
     print(f"| {f'Genetic Algorithm':{n}s}|")
     print(" ================================================================ ")
     print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
+    print(f"| {f'Time limit         : {config.time_lim} sec':{n}s}|")
     print(f"| {f'cluster size       : {config.cluster_size}':{n}s}|")
     print(f"| {f'Population size    : {config.pop_size}':{n}s}|")
     print(f"| {f'Fitness function   : {config.fitness_func}':{n}s}|")
