@@ -56,6 +56,8 @@ optional arguments:
   --step-size-interval STEP_SIZE_INTERVAL
                         The interval for how often to update the step size
                         (default: 50)
+
+stop conditions:
   -m MAX_STEPS, --max-steps MAX_STEPS
                         The maximum number of steps the algorithm will take
                         (default: 500)
