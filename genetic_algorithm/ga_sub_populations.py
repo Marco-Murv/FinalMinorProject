@@ -48,8 +48,8 @@ from dataclasses import dataclass
 from datetime import datetime as dt
 from ga_distributed import flatten_list
 from ase.calculators.lj import LennardJones
-from genetic_algorithm import debug, generate_population
 from genetic_algorithm import natural_selection_step
+from genetic_algorithm import debug, generate_population
 from genetic_algorithm import optimise_local, fitness, get_mutants
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -70,6 +70,7 @@ def config_info(config):
     print(f"| {f'Genetic Algorithm':{n}s}|")
     print(" ================================================================ ")
     print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
+    print(f"| {f'Time limit         : {config.time_lim} sec':{n}s}|")
     print(f"| {f'cluster size       : {config.cluster_size}':{n}s}|")
     print(f"| {f'Population size    : {config.pop_size}':{n}s}|")
     print(f"| {f'Fitness function   : {config.fitness_func}':{n}s}|")
@@ -285,9 +286,9 @@ def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, s
     return pop, energies, send_req_left, send_req_right
 
 
-def sync_before_exchange(start_time, gen_no_success, c, rank, comm):
+def check_stopping_conditions(start_time, gen_no_success, c, rank, comm):
     """
-    Synchronises all processes before starting the cluster exchange process.
+    Synchronises all processes for checking stopping conditions.
     If the maximum time limit has been reached while waiting, then return abort code 0.
     If maximum generations without a new global minimum on any processor has been reached, return 1.
     Else, if everything is successful, return 2.
@@ -301,21 +302,18 @@ def sync_before_exchange(start_time, gen_no_success, c, rank, comm):
     """
 
     abort = 2
-    req_barr = comm.Ibarrier()
-    while not req_barr.get_status():
-        # Check whether the time limit has been reached
-        if (MPI.Wtime() - start_time) > c.time_lim:
-            abort = 0
-            return abort
-        time.sleep(0.001)
+    comm.Barrier()  # Sync all processors before checking stopping conditions
 
     # Check whether max number of generations have passed without improvements for any processor
     gen_no_success = np.array([gen_no_success], dtype='i')
     no_success_arr = np.empty([comm.Get_size(), 1], dtype='i')
     comm.Gather(gen_no_success, no_success_arr, root=0)
     if rank == 0:
-        if (no_success_arr > c.max_exch_no_success * c.gens_until_exchange).all():
+        if (no_success_arr >= c.max_exch_no_success * c.gens_until_exchange).all():
             abort = 1
+        # Check whether time limit has been reached otherwise
+        elif (MPI.Wtime() - start_time) > c.time_lim:
+            abort = 0
 
     abort = comm.bcast(abort, root=0)
     return abort
@@ -359,6 +357,8 @@ def ga_sub_populations():
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     num_procs = comm.Get_size()
+
+    print(f"Started sub-populations on processor {rank}!")
 
     # Check whether enough processors (> 1)
     if num_procs < 2:
@@ -415,19 +415,22 @@ def ga_sub_populations():
     send_req_right = None
 
     while gen < c.max_gen:
-        # If max time has been reached, set stopping condition to 0
+        # If max time has been reached, send program to the barrier to sync all procs for the end
         if (MPI.Wtime() - start_time) > c.time_lim:
-            abort = 0
+            abort = check_stopping_conditions(start_time, gen_no_success, c, rank, comm)
         if abort == 0:
-            debug(f"Processor {rank} aborted due to time limit!")
+            debug(f"Processor {rank} aborted in gen {gen} due to time limit!")
+            break
+        if abort == 1:
+            debug(f"Processor {rank} aborted in gen {gen} due to max generations without success reached!")
             break
 
         # Exchange clusters with neighbouring processors
         if (gen % c.gens_until_exchange) == 0:
             # Synchronise all processors before communication to make sure they all abort simultaneously before comms
-            abort = sync_before_exchange(start_time, gen_no_success, c, rank, comm)
+            abort = check_stopping_conditions(start_time, gen_no_success, c, rank, comm)
             if abort == 0:
-                debug(f"Processor {rank} aborted due to time limit!")
+                debug(f"Processor {rank} aborted before exchanging due to time limit!")
                 break
             if abort == 1:
                 debug(f"Processor {rank} aborted in gen {gen} due to max generations without success reached!")
