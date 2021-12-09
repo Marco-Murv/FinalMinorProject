@@ -13,7 +13,6 @@ import yaml
 from ase import Atoms
 from ase.calculators.calculator import Calculator
 from ase.calculators.lj import LennardJones
-from ase.constraints import Hookean
 from ase.db import connect
 from ase.io.trajectory import Trajectory
 from ase.optimize import LBFGS
@@ -266,7 +265,6 @@ class BasinHopping:
         # Calculate uniformly distributed points inside the sphere
         positions = XYZ*U[:,np.newaxis]
         # Initialize atoms object
-        # constraint = [Hookean(i, (0,0,0), 15, max_radius) for i in range(cluster_size)]
         constraint = None if max_radius is None else CubeConstraint(max_radius)
         return Atoms(positions=positions, constraint=constraint, calculator=calculator())
 
@@ -335,10 +333,11 @@ if __name__ == "__main__":
     optional_group.add_argument("--accept-rate", type=float, default=0.5, help="The desired step acceptance rate")
     optional_group.add_argument("--step-size-factor", type=float, default=0.9, help="The factor to multiply and divide the step size by")
     optional_group.add_argument("--step-size-interval", type=int, default=50, help="The interval for how often to update the step size")
-    #
-    optional_group.add_argument("-m", "--max-steps", type=int, default=500, help="The maximum number of steps the algorithm will take")
-    optional_group.add_argument("-ss", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
-    optional_group.add_argument("-st", "--stop-time", type=int, default=None, help="The maximum amount of time, in seconds, the algorithm will run for before stopping. If not set, the algorithm will run for the maximum number of steps")
+    # Stop conditions
+    stop_conditions = parser.add_argument_group("stop conditions")
+    stop_conditions.add_argument("-m", "--max-steps", type=int, default=500, help="The maximum number of steps the algorithm will take")
+    stop_conditions.add_argument("-ss", "--stop-steps", type=int, default=None, help="The number of steps, without there being a new minimum, the algorithm will take before stopping. If not set, the algorithm will run for the maximum number of steps")
+    stop_conditions.add_argument("-st", "--stop-time", type=int, default=None, help="The maximum amount of time, in seconds, the algorithm will run for before stopping. If not set, the algorithm will run for the maximum number of steps")
     # Filter arguments
     filter_group = parser.add_argument_group("filter arguments")
     filter_types = filter_group.add_mutually_exclusive_group()

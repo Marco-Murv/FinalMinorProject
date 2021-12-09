@@ -11,7 +11,7 @@ results:
   db_file: genetic_algorithm_results.db
   results_dir: results
 reuse_state: false
-run_id: 22
+run_id: 25
 show_plot: true
 stop_conditions:
   max_gen: 50
