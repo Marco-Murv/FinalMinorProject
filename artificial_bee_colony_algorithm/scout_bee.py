@@ -5,8 +5,11 @@ import artificial_bee_colony_algorithm
 import numpy as np
 from mpi4py import MPI
 
-
+# TODO energy diff, energy to config variable
+# TODO deleting when specific minima is not updated for throughout many loops (could be implement with ase tag)
 def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, energy_diff, energy_abnormal):
+
+    # TODO 1 using is_parallel, implement version that does not run in parallel
     minimal_pe = sys.maxsize  # lowest potential energy
 
     for cluster in pop:

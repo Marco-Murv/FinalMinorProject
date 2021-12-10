@@ -1,6 +1,8 @@
 cluster_radius: 3.5
 cluster_size: 10
-cycle: 10
+cycle: 1
 is_parallel: 1
 pop_size: 18
-run_id: 602
+run_id: 5
+time_out: -1
+view_traj: 0

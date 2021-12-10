@@ -23,6 +23,7 @@ def onlooker_bee_func(pop, pop_size, cluster_size, calc, local_optimiser):
 
 def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser):
     # select random index
+    # TODO more than one cluster could be choosed to be updated ?
     selected_index = get_index(pop)
     random_index2 = random.sample(range(pop_size), 4)
     f = randrange(1000) / 1000.0
@@ -38,6 +39,7 @@ def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimis
     if new_x.get_potential_energy() <= pop[selected_index].get_potential_energy():
         pop[selected_index] = new_x
     elif False:
+        # TODO to config
         # if it current index did not improved find other index to improve
         return search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser)
 
@@ -45,6 +47,7 @@ def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimis
 
 
 def get_index(pop):
+    # TODO probability should be a config variable
     random_n = randrange(10)
     if random_n > 2:
         return get_index_best(pop)

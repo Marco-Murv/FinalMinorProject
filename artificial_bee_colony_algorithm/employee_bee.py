@@ -8,7 +8,7 @@ import random
 from mpi4py import MPI
 import math
 
-
+# TODO refactoring
 def employee_bee_func(pop, s_n, cluster_size, calc, local_optimiser, comm, rank, total_p, is_parallel,
                       eb_mutation_size):
     """
@@ -43,6 +43,8 @@ def employee_bee_func(pop, s_n, cluster_size, calc, local_optimiser, comm, rank,
                     e = np.append(e, np.abs(pop[random_index[j]].get_potential_energy()))
                 sum_e = np.sum(e)
 
+
+            # TODO different search method could be possible
             # p =  |e[m]| / (|e[1]|+|e[1]|+ |e[1]|) where m = 1, 2, 3
             p = np.array([])
             for j in range(eb_mutation_size):

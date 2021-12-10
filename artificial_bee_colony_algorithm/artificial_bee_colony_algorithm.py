@@ -29,7 +29,8 @@ def debug(*args, **kwargs) -> None:
     Alias for print() function.
     This can easily be redefined to disable all output.
     """
-    print("[DEBUG]: ", flush=True, *args, **kwargs)
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        print("[DEBUG]: ", flush=True, *args, **kwargs)
 
 
 def config_info(config):
@@ -60,6 +61,8 @@ class Config:
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
     is_parallel = 0
+    time_out = 0
+    view_traj = 0
 
 
 def get_configuration(config_file):
@@ -77,30 +80,21 @@ def get_configuration(config_file):
         yaml_conf = yaml.safe_load(os.path.expandvars(f.read()))
 
     # Create parser for terminal input
-    parser = argparse.ArgumentParser(description='Genetic Algorithm PGGO')
-    parser.add_argument('--cluster_size', type=int, metavar='',
-                        help='Number of atoms per cluster')
-    parser.add_argument('--pop_size', type=int, metavar='',
-                        help='Number of clusters in the population')
-    parser.add_argument('--cluster_radius', default=2.0, type=float, metavar='',
-                        help='Dimension of initial random clusters')
-    parser.add_argument('--run_id', type=int, metavar='',
-                        help="ID for the current run. Increments automatically")
-    parser.add_argument('--cycle', type=int, metavar='',
-                        help="size of cycle for the loop")
-    parser.add_argument('--is_parallel', type=int, metavar='',
-                        help="run in parallel")
-    p = parser.parse_args()
-
     c = Config()
     # Set variables to terminal input if possible, otherwise use config file
-    c.cluster_size = p.cluster_size or yaml_conf['cluster_size']
-    c.pop_size = p.pop_size or yaml_conf['pop_size']
-    c.cluster_radius = p.cluster_radius or yaml_conf['cluster_radius']
-    c.run_id = p.run_id or yaml_conf['run_id']
+    c.cluster_size = yaml_conf['cluster_size']
+    c.pop_size = yaml_conf['pop_size']
+    c.cluster_radius = yaml_conf['cluster_radius']
+    c.run_id = yaml_conf['run_id']
     c.cycle = yaml_conf['cycle']
     c.is_parallel = yaml_conf['is_parallel']
 
+    # When time out is set to less than 0, it is set to infinity
+    if  yaml_conf['time_out'] <= 0:
+        c.time_out = float('inf')
+    else:
+        c.time_out = yaml_conf['time_out']
+    c.view_traj = yaml_conf['view_traj']
     # Increment run_id for next run
     yaml_conf['run_id'] += 1
     with open(config_file, 'w') as f:
@@ -110,7 +104,7 @@ def get_configuration(config_file):
 
 
 def generate_cluster_with_position(p, cluster_size) -> Atoms:
-    return Atoms(cluster_str + str(cluster_size), p)
+    return Atoms('H' + str(cluster_size), p)
 
 
 def generate_cluster(cluster_size, radius) -> Atoms:
@@ -122,7 +116,7 @@ def generate_cluster(cluster_size, radius) -> Atoms:
     Returns:
         new_cluster (Atoms) : Randomly generated cluster
     """
-    return Atoms(cluster_str + str(cluster_size),
+    return Atoms('H' + str(cluster_size),
                  np.random.uniform(-radius / 2, radius / 2, (cluster_size, 3)).tolist())
 
 
@@ -190,14 +184,14 @@ def store_results_database(pop, db, c, cycle):
     @param c: the configuration information of the GA run
     @return: exit code 0
     """
-
+    # TODO separation between local minimas and global minima
     for cluster in pop:
         last_id = db.write(cluster, pop_size=c.pop_size,
                            cluster_size=c.cluster_size, run_id=c.run_id,
                            potential_energy=cluster.get_potential_energy(), cycle=cycle)
     return 0
 
-
+# TODO change the strutuer of config file , look at the genetic algorithm config
 def artificial_bee_colony_algorithm():
     tic = time.perf_counter()
     setup_start_time = MPI.Wtime()
@@ -206,6 +200,7 @@ def artificial_bee_colony_algorithm():
     total_p = comm.Get_size()
     if rank == 0:
         # Parse possible input, otherwise use default parameters
+        # TODO directory and file names should also be in the config file
         p = get_configuration('config/run_config.yaml')
         config_info(p)
         # generate initial population
@@ -221,11 +216,12 @@ def artificial_bee_colony_algorithm():
 
     show_calc_min = 1
     eb_mutation_size = 3
-    if rank == 0:
-        debug(f"Set up took {MPI.Wtime() - setup_start_time}")
+
+    debug(f"Set up took {MPI.Wtime() - setup_start_time}")
     cycle_start_time = MPI.Wtime()
     break_loop =False
-    time_out = 20
+    # TODO stop loop when it does not show improvement for many loops
+    # eg when the minima at lo
     for i in range(1, p.cycle +1):
         population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser, comm, rank, total_p, p.is_parallel, eb_mutation_size)
         if rank == 0:
@@ -238,7 +234,7 @@ def artificial_bee_colony_algorithm():
             if (i % show_calc_min) == 0:
                 debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
 
-        if time.perf_counter() - tic >= time_out: # if algorithm didn't stop after x seconds, stop the algorithm
+        if time.perf_counter() - tic >= p.time_out: # if algorithm didn't stop after x seconds, stop the algorithm
             if rank == 0:
                 debug(f"Function time exceeded. Stopping now")
                 break_loop = True
@@ -247,11 +243,8 @@ def artificial_bee_colony_algorithm():
         if break_loop:
             break
 
-    if rank == 0:
-        if p.is_parallel == 1:
-            debug(f"It took {MPI.Wtime() - cycle_start_time} with {total_p} processors")
-        else:
-            debug(f"It took {MPI.Wtime()- cycle_start_time} without parallelization")
+
+    debug(f"It took {MPI.Wtime() - cycle_start_time} with {total_p} processors")
 
     if rank == 0:
         # filter out local minima that are too similar and print out the results
@@ -263,9 +256,12 @@ def artificial_bee_colony_algorithm():
         for cluster in local_minima:
             trajectory.write(cluster)
         trajectory.close()
-        trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj")
-        view(trajectory)
+        if p.view_traj == 1:
+            trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj")
+            view(trajectory)
+
         db_start_time = MPI.Wtime()
+        # TODO directory and file names should also be in the config file
         store_results_database(local_minima,
                                ase.db.connect(os.path.join(os.path.dirname(__file__),
                                                            "artificial_bee_colony_algorithm_results.db")), p, p.cycle)
