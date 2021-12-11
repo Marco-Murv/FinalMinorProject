@@ -1,9 +1,7 @@
-import random
-import sys
-from random import randrange
 
+from random import randrange
 import artificial_bee_colony_algorithm
-import numpy as np
+import employee_bee
 
 
 def onlooker_bee_func(pop, pop_size, cluster_size, calc, local_optimiser):
@@ -25,16 +23,9 @@ def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimis
     # select random index
     # TODO more than one cluster could be choosed to be updated ?
     selected_index = get_index(pop)
-    random_index2 = random.sample(range(pop_size), 4)
     f = randrange(1000) / 1000.0
     new_x = artificial_bee_colony_algorithm.optimise_local_each(
-        artificial_bee_colony_algorithm.generate_cluster_with_position(pop[selected_index].get_positions() + f *
-                                                                       (pop[random_index2[0]].get_positions() +
-                                                                        pop[
-                                                                            random_index2[1]].get_positions()
-                                                                        - pop[random_index2[2]].get_positions()
-                                                                        - pop[
-                                                                            random_index2[3]].get_positions()),
+        artificial_bee_colony_algorithm.generate_cluster_with_position(employee_bee.calculate_new_position_monte_carlo(selected_index, pop, pop_size, 4, f),
                                                                        cluster_size), calc, local_optimiser)
     if new_x.get_potential_energy() <= pop[selected_index].get_potential_energy():
         pop[selected_index] = new_x
