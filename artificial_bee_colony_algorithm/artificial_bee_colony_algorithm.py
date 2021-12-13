@@ -21,8 +21,6 @@ from mpi4py import MPI
 from ase.io.trajectory import Trajectory
 from ase.visualize import view
 
-cluster_str = 'H'
-
 
 def debug(*args, **kwargs) -> None:
     """
@@ -90,7 +88,7 @@ def get_configuration(config_file):
     c.is_parallel = yaml_conf['is_parallel']
 
     # When time out is set to less than 0, it is set to infinity
-    if  yaml_conf['time_out'] <= 0:
+    if yaml_conf['time_out'] <= 0:
         c.time_out = float('inf')
     else:
         c.time_out = yaml_conf['time_out']
@@ -155,11 +153,13 @@ def optimise_local(population, calc, optimiser, size) -> List[Atoms]:
         (List[Atoms])           : Optimised population
     """
 
-    if size == 1: return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
-    else :
+    if size == 1:
+        return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
+    else:
         comm = MPI.COMM_WORLD
 
-        splitted_population = split(population, comm.Get_size())  # divides the array into n parts to divide over processors
+        splitted_population = split(population,
+                                    comm.Get_size())  # divides the array into n parts to divide over processors
         population = comm.scatter(splitted_population, root=0)
 
         result = []
@@ -173,7 +173,8 @@ def optimise_local(population, calc, optimiser, size) -> List[Atoms]:
             optimised_clusters = [i for i in optimised_clusters if i]
             optimised_clusters = [item for sublist in optimised_clusters for item in sublist]
             return optimised_clusters
-        else: return []
+        else:
+            return []
 
 
 def store_results_database(pop, db, c, cycle):
@@ -190,6 +191,7 @@ def store_results_database(pop, db, c, cycle):
                            cluster_size=c.cluster_size, run_id=c.run_id,
                            potential_energy=cluster.get_potential_energy(), cycle=cycle)
     return 0
+
 
 # TODO change the strutuer of config file , look at the genetic algorithm config
 def artificial_bee_colony_algorithm():
@@ -219,22 +221,27 @@ def artificial_bee_colony_algorithm():
 
     debug(f"Set up took {MPI.Wtime() - setup_start_time}")
     cycle_start_time = MPI.Wtime()
-    break_loop =False
+    break_loop = False
     # TODO stop loop when it does not show improvement for many loops
     # eg when the minima at lo
-    for i in range(1, p.cycle +1):
-        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser, comm, rank, total_p, p.is_parallel, eb_mutation_size)
+    for i in range(1, p.cycle + 1):
+        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser,
+                                                    comm, rank, total_p, p.is_parallel, eb_mutation_size)
         if rank == 0:
             population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser)
+    
         population = comm.bcast(population, root=0)
-        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc, p.local_optimiser, comm, rank, 0.4, 0.65)
+        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc,
+                                             p.local_optimiser, comm, rank, 0.04, 0.65)
         population = comm.bcast(population, root=0)
+
 
         if rank == 0:
             if (i % show_calc_min) == 0:
-                debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
+                debug(
+                    f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
 
-        if time.perf_counter() - tic >= p.time_out: # if algorithm didn't stop after x seconds, stop the algorithm
+        if time.perf_counter() - tic >= p.time_out:  # if algorithm didn't stop after x seconds, stop the algorithm
             if rank == 0:
                 debug(f"Function time exceeded. Stopping now")
                 break_loop = True
@@ -242,7 +249,6 @@ def artificial_bee_colony_algorithm():
 
         if break_loop:
             break
-
 
     debug(f"It took {MPI.Wtime() - cycle_start_time} with {total_p} processors")
 

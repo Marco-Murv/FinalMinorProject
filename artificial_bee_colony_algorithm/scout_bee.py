@@ -23,20 +23,20 @@ def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser
     #         if cluster.get_potential_energy() < 0:
     #             new_pop.append(cluster)
 
-    splitted_pop = split(pop, comm.Get_size()) # divides the array into n parts to divide over processors
+    splitted_pop = split(pop, comm.Get_size())  # divides the array into n parts to divide over processors
     pop = comm.scatter(splitted_pop, root=0)
     result = []
     for cluster in pop:
         if (cluster.get_potential_energy() / minimal_pe) >= energy_abnormal:
             if cluster.get_potential_energy() < 0:
                 result.append(cluster)
-    new_pop = comm.gather(result, root=0) # gather the result from all processes to master
+    new_pop = comm.gather(result, root=0)  # gather the result from all processes to master
     if rank == 0:
         new_pop = [i for i in new_pop if i]
-        new_pop = [item for sublist in new_pop for item in sublist] # flatten array to 1D array
+        new_pop = [item for sublist in new_pop for item in sublist]  # flatten array to 1D array
     new_pop = comm.bcast(new_pop)
 
-    energy_diff =energy_diff
+    energy_diff = energy_diff
     energies = [cluster.get_potential_energy() for cluster in new_pop]
     combined = list(zip(new_pop, energies))
     minima = np.array(combined, dtype=object)
@@ -68,7 +68,8 @@ def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser
     new_pop = [cluster for [cluster, energy] in local_minima]
     if len(pop) != len(new_pop):  # replace the old removed clusters with new clusters
         # if n clusters were removed, then n new clusters are added
-        new_clusters = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius)[:len(pop) - len(new_pop)]
+        new_clusters = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius)[
+                       :len(pop) - len(new_pop)]
         for cluster in new_clusters: cluster.calc = calc
         artificial_bee_colony_algorithm.optimise_local(new_clusters, calc, local_optimiser, comm.Get_size())
         new_pop += new_clusters
@@ -83,4 +84,4 @@ def split(a, n):
     """
 
     k, m = divmod(len(a), n)
-    return list(a[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
+    return list(a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))

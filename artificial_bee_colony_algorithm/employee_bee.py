@@ -4,6 +4,7 @@ import random
 from random import randrange
 import math
 
+
 # TODO refactoring
 def employee_bee_func(pop, s_n, cluster_size, calc, local_optimiser, comm, rank, total_p, is_parallel,
                       eb_mutation_size):
@@ -19,14 +20,13 @@ def employee_bee_func(pop, s_n, cluster_size, calc, local_optimiser, comm, rank,
         """
 
     if is_parallel == 1:
-        return employee_bee_mutation_parallel(pop, s_n, cluster_size, calc, local_optimiser, eb_mutation_size,  comm, rank, total_p)
+        return employee_bee_mutation_parallel(pop, s_n, cluster_size, calc, local_optimiser, eb_mutation_size, comm,
+                                              rank, total_p)
     else:
         if rank == 0:
             # not parallelized version
-            return employee_bee_mutation_non_parallel(pop, s_n, cluster_size, calc, local_optimiser, eb_mutation_size,  comm, rank, total_p)
-
-
-
+            return employee_bee_mutation_non_parallel(pop, s_n, cluster_size, calc, local_optimiser, eb_mutation_size,
+                                                      comm, rank, total_p)
 
 
 def select_random_cluster_mutation(population, n, crr_i):
@@ -43,6 +43,7 @@ def select_random_cluster_mutation(population, n, crr_i):
                 p = np.append(p, e[j] / e_sum)
             return p, random_index, np.sum(e)
 
+
 def calculate_new_position_mutation(i, pop, n):
     p, random_index, e_sum = select_random_cluster_mutation(pop, n, i)
     new_atoms_position = 0.0
@@ -54,14 +55,14 @@ def calculate_new_position_mutation(i, pop, n):
         k = j + 1
         if j == n - 1:
             k = 0
-        new_atoms_position += (p[k] - p[j]) * (pop[random_index[j]].get_positions()
-                                               - pop[k].get_positions())
+        new_atoms_position += (p[k] - p[j]) * (pop[random_index[j]].get_positions() - pop[random_index[k]].get_positions())
     return new_atoms_position
+
 
 def calculate_new_position_monte_carlo(i, pop, s_n, n, f):
     if f < 0:
-        randrange(1000) / 1000.0
-    if n%2 !=0:
+        f = randrange(1000) / 1000.0
+    if n % 2 != 0:
         n += 1
     random_index = random.sample(range(s_n), n)
     new_position = pop[i].get_positions()
@@ -73,7 +74,8 @@ def calculate_new_position_monte_carlo(i, pop, s_n, n, f):
     return new_position
 
 
-def employee_bee_mutation_parallel(pop, s_n, cluster_size, calc, local_optimiser, eb_mutation_size,  comm, rank, total_p):
+def employee_bee_mutation_parallel(pop, s_n, cluster_size, calc, local_optimiser, eb_mutation_size, comm, rank,
+                                   total_p):
     end_i = (rank + 1) * math.floor(s_n / total_p)
     if rank == total_p - 1:
         end_i = s_n
@@ -99,6 +101,7 @@ def employee_bee_mutation_parallel(pop, s_n, cluster_size, calc, local_optimiser
         return sum(pop_final, [])
     else:
         return None
+
 
 def employee_bee_mutation_non_parallel(pop, s_n, cluster_size, calc, local_optimiser, mutation_n, comm, rank, total_p):
     """
