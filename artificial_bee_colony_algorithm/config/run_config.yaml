@@ -3,6 +3,6 @@ cluster_size: 10
 cycle: 10
 is_parallel: 1
 pop_size: 18
-run_id: 49
+run_id: 66
 time_out: -1
 view_traj: 0
