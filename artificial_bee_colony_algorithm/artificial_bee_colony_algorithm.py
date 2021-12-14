@@ -232,7 +232,7 @@ def artificial_bee_colony_algorithm():
     
         population = comm.bcast(population, root=0)
         population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc,
-                                             p.local_optimiser, comm, rank, 0.04, 0.65)
+                                             p.local_optimiser, comm, rank, 0.04, 0.65, i-1)
         population = comm.bcast(population, root=0)
 
 

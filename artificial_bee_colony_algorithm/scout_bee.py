@@ -1,14 +1,14 @@
 #!/bin/python3
-
+import numpy
 import sys
 import artificial_bee_colony_algorithm
 import numpy as np
-from mpi4py import MPI
+
+check_every_loop = 3
+local_minima_per_loop = np.zeros(check_every_loop, dtype=object)
 
 # TODO energy diff, energy to config variable
-# TODO deleting when specific minima is not updated for throughout many loops (could be implement with ase tag)
-def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, energy_diff, energy_abnormal):
-
+def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, energy_diff, energy_abnormal, loop_index):
     # TODO 1 using is_parallel, implement version that does not run in parallel
     minimal_pe = sys.maxsize  # lowest potential energy
 
@@ -73,6 +73,19 @@ def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser
         for cluster in new_clusters: cluster.calc = calc
         artificial_bee_colony_algorithm.optimise_local(new_clusters, calc, local_optimiser, comm.Get_size())
         new_pop += new_clusters
+
+    if loop_index >= check_every_loop: #if a local minima hasn't been updated for 'check_every_loop' loops, then replace with new cluster
+        for idx, a in enumerate(new_pop):
+            if new_pop[idx].get_potential_energy() in local_minima_per_loop[loop_index % check_every_loop]:
+                new_cluster = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius)[0]
+                new_cluster.calc = calc
+                artificial_bee_colony_algorithm.optimise_local([new_cluster], calc, local_optimiser, comm.Get_size())
+                new_pop[idx] = new_cluster
+
+    local_minima = np.array([])
+    for cluster in new_pop:
+        local_minima = np.append(local_minima, cluster.get_potential_energy())
+    local_minima_per_loop[loop_index % check_every_loop] = local_minima
 
     return new_pop
 
