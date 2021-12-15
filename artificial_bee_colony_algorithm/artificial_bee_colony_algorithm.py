@@ -1,25 +1,25 @@
 #!/bin/python3
+import os
+import sys
+import time
 from dataclasses import dataclass
+from datetime import datetime as dt
+from typing import List
 
+import ase.db
 import numpy as np
 import yaml
 from ase import Atoms
 from ase.calculators.lj import LennardJones
+from ase.io.trajectory import Trajectory
 from ase.optimize import LBFGS
-import ase.db
-import os
-from typing import List
-import argparse
-import sys
+from ase.visualize import view
+from mpi4py import MPI
+
 import employee_bee
 import onlooker_bee
-import scout_bee
-from datetime import datetime as dt
 import process
-import time
-from mpi4py import MPI
-from ase.io.trajectory import Trajectory
-from ase.visualize import view
+import scout_bee
 
 
 def debug(*args, **kwargs) -> None:
@@ -70,6 +70,10 @@ class Config:
     sb_enable = 1
     auto_stop = -1
     auto_stop_sf = 0
+    energy_diff = 0.04
+    energy_abnormal = 0.65
+    check_energies_every_x_loops = 20
+    update_energies = 1
 
 
 def get_configuration(config_file):
@@ -116,6 +120,10 @@ def get_configuration(config_file):
     c.ob_enable = yaml_conf['onlooker_bee_config']['enable']
 
     c.sb_enable = yaml_conf['scout_bee_config']['enable']
+    c.energy_diff = yaml_conf['scout_bee_config']['energy_difference']
+    c.energy_abnormal = yaml_conf['scout_bee_config']['energy_abnormal']
+    c.check_energies_every_x_loops = yaml_conf['scout_bee_config']['check_energies_every_x_loops']
+    c.update_energies = yaml_conf['scout_bee_config']['update_energies']
     with open(config_file, 'w') as f:
         yaml.dump(yaml_conf, f)
 
@@ -226,10 +234,12 @@ def artificial_bee_colony_algorithm():
         # TODO directory and file names should also be in the config file
         p = get_configuration('config/run_config.yaml')
         config_info(p)
-        # generate initial population
+        # Generate initial population and optimise locally
         population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius)
         optimise_local(population, p.calc, p.local_optimiser, 1)
-        # Generate initial population and optimise locally
+
+        # Set scout bee variable
+        scout_bee.check_every_loop = p.check_energies_every_x_loops
     else:
         population = None
         p = None
@@ -255,9 +265,8 @@ def artificial_bee_colony_algorithm():
         population = comm.bcast(population, root=0)
 
         if p.sb_enable == 1:
-            # TODO constant values should be in configuration
             population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc,
-                                                  p.local_optimiser, comm, rank, 0.04, 0.65, i - 1, p.is_parallel)
+                                                  p.local_optimiser, comm, rank, p.energy_diff, p.energy_abnormal, i - 1, p.is_parallel, p.update_energies)
             population = comm.bcast(population, root=0)
 
         if rank == 0:

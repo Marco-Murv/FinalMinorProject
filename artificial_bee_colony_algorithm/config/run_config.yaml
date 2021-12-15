@@ -15,8 +15,12 @@ run_config:
   is_parallel: 1
   maximum_cycle: 999999999
   minimum_cycle: 10
-  run_id: 0
+  run_id: 31
   time_out: 30
   view_traj: 0
 scout_bee_config:
-  enable: 0
+  check_energies_every_x_loops: 20
+  enable: 1
+  energy_abnormal: 0.65
+  energy_difference: 0.04
+  update_energies: 1
