@@ -7,7 +7,7 @@ import math
 
 # TODO refactoring
 def employee_bee_func(pop, s_n, cluster_size, calc, local_optimiser, comm, rank, total_p, is_parallel,
-                      eb_mutation_size):
+                      eb_mutation_size, search_method, monte_carlo_f):
     """
         employed bee discovers neighbor structure and creates new structure
 
@@ -21,7 +21,7 @@ def employee_bee_func(pop, s_n, cluster_size, calc, local_optimiser, comm, rank,
 
     if is_parallel == 1:
         return employee_bee_mutation_parallel(pop, s_n, cluster_size, calc, local_optimiser, eb_mutation_size, comm,
-                                              rank, total_p)
+                                              rank, total_p, search_method, monte_carlo_f)
     else:
         if rank == 0:
             # not parallelized version
@@ -75,7 +75,7 @@ def calculate_new_position_monte_carlo(i, pop, s_n, n, f):
 
 
 def employee_bee_mutation_parallel(pop, s_n, cluster_size, calc, local_optimiser, eb_mutation_size, comm, rank,
-                                   total_p):
+                                   total_p, search_method, monte_carlo_f):
     end_i = (rank + 1) * math.floor(s_n / total_p)
     if rank == total_p - 1:
         end_i = s_n
@@ -86,9 +86,13 @@ def employee_bee_mutation_parallel(pop, s_n, cluster_size, calc, local_optimiser
         # p =  |e[m]| / (|e[1]|+|e[1]|+ |e[1]|) where m = 1, 2, 3
         # get position of atoms through mutation
         # create new Atoms with new positions and locally optimise
+        if search_method == 0:
+            new_position = calculate_new_position_mutation(i, pop, eb_mutation_size)
+        else:
+            new_position = calculate_new_position_monte_carlo(i, pop, s_n, eb_mutation_size, monte_carlo_f)
         new_x = artificial_bee_colony_algorithm.optimise_local_each(
             artificial_bee_colony_algorithm.generate_cluster_with_position(
-                calculate_new_position_mutation(i, pop, eb_mutation_size), cluster_size),
+                new_position, cluster_size),
             calc, local_optimiser)
         # if new Atoms has better potential energy than current Atoms replace, otherwise keep
         if new_x.get_potential_energy() <= pop[i].get_potential_energy():

@@ -44,7 +44,7 @@ def config_info(config):
     print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
     print(f"| {f'cluster size       : {config.cluster_size}':{n}s}|")
     print(f"| {f'Population size    : {config.pop_size}':{n}s}|")
-    print(f"| {f'Cycle              : {config.cycle}':{n}s}|")
+    print(f"| {f'Cycle              : {config.minimum_cycle}':{n}s}|")
 
     print(" ---------------------------------------------------------------- ")
 
@@ -55,12 +55,21 @@ class Config:
     pop_size: int = None
     cluster_radius: float = None
     run_id: int = None
-    cycle: int = None
+    minimum_cycle: int = None
+    maximum_cycle: int = None
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
     is_parallel = 0
     time_out = 0
     view_traj = 0
+    eb_search_method = 0
+    eb_search_size = 4
+    monte_carlo_search_f = -1
+    eb_enable = 1
+    ob_enable = 1
+    sb_enable = 1
+    auto_stop = -1
+    auto_stop_sf = 0
 
 
 def get_configuration(config_file):
@@ -80,21 +89,33 @@ def get_configuration(config_file):
     # Create parser for terminal input
     c = Config()
     # Set variables to terminal input if possible, otherwise use config file
-    c.cluster_size = yaml_conf['cluster_size']
-    c.pop_size = yaml_conf['pop_size']
-    c.cluster_radius = yaml_conf['cluster_radius']
-    c.run_id = yaml_conf['run_id']
-    c.cycle = yaml_conf['cycle']
-    c.is_parallel = yaml_conf['is_parallel']
+    c.cluster_size = yaml_conf['cluster_config']['cluster_size']
+    c.pop_size = yaml_conf['cluster_config']['pop_size']
+    c.cluster_radius = yaml_conf['cluster_config']['cluster_radius']
+    c.run_id = yaml_conf['run_config']['run_id']
+    c.minimum_cycle = yaml_conf['run_config']['minimum_cycle']
+    c.maximum_cycle = yaml_conf['run_config']['maximum_cycle']
+    c.is_parallel = yaml_conf['run_config']['is_parallel']
+    c.auto_stop = yaml_conf['run_config']['auto_stop']
+    c.auto_stop_sf = yaml_conf['run_config']['auto_stop_sf']
 
     # When time out is set to less than 0, it is set to infinity
-    if yaml_conf['time_out'] <= 0:
+    if yaml_conf['run_config']['time_out'] <= 0:
         c.time_out = float('inf')
     else:
-        c.time_out = yaml_conf['time_out']
-    c.view_traj = yaml_conf['view_traj']
+        c.time_out = yaml_conf['run_config']['time_out']
+    c.view_traj = yaml_conf['run_config']['view_traj']
     # Increment run_id for next run
-    yaml_conf['run_id'] += 1
+    yaml_conf['run_config']['run_id'] += 1
+
+    c.eb_search_method = yaml_conf['employed_bee_config']['search_method']
+    c.monte_carlo_search_f = yaml_conf['employed_bee_config']['monte_carlo_search_f']
+    c.eb_search_size = yaml_conf['employed_bee_config']['search_size']
+    c.eb_enable = yaml_conf['employed_bee_config']['enable']
+
+    c.ob_enable = yaml_conf['onlooker_bee_config']['enable']
+
+    c.sb_enable = yaml_conf['scout_bee_config']['enable']
     with open(config_file, 'w') as f:
         yaml.dump(yaml_conf, f)
 
@@ -217,36 +238,47 @@ def artificial_bee_colony_algorithm():
     comm.Barrier()
 
     show_calc_min = 1
-    eb_mutation_size = 3
-
     debug(f"Set up took {MPI.Wtime() - setup_start_time}")
     cycle_start_time = MPI.Wtime()
     break_loop = False
-    # TODO stop loop when it does not show improvement for many loops
-    # eg when the minima at lo
-    for i in range(1, p.cycle + 1):
-        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser,
-                                                    comm, rank, total_p, p.is_parallel, eb_mutation_size)
-        if rank == 0:
-            population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser)
-    
-        population = comm.bcast(population, root=0)
-        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc,
-                                             p.local_optimiser, comm, rank, 0.04, 0.65, i-1, p.is_parallel)
+    min_potential_energies = np.array([])
+
+    for i in range(1, p.maximum_cycle + 1):
+        if p.eb_enable == 1:
+            population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc,
+                                                        p.local_optimiser,
+                                                        comm, rank, total_p, p.is_parallel, p.eb_search_size,
+                                                        p.eb_search_method, p.monte_carlo_search_f)
+        if (p.ob_enable == 1) & (rank == 0):
+            population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc,
+                                                        p.local_optimiser)
         population = comm.bcast(population, root=0)
 
+        if p.sb_enable == 1:
+            # TODO constant values should be in configuration
+            population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc,
+                                                  p.local_optimiser, comm, rank, 0.04, 0.65, i - 1, p.is_parallel)
+            population = comm.bcast(population, root=0)
 
         if rank == 0:
             if (i % show_calc_min) == 0:
+                min_e = np.min([cluster.get_potential_energy() for cluster in population])
+                min_potential_energies = np.append(min_potential_energies, min_e)
                 debug(
-                    f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
+                    f"Global optimisation at loop {i}:{min_e}")
 
-        if time.perf_counter() - tic >= p.time_out:  # if algorithm didn't stop after x seconds, stop the algorithm
+        if (time.perf_counter() - tic >= p.time_out) & (i > p.minimum_cycle):  # if algorithm didn't stop after x seconds, stop the algorithm
             if rank == 0:
                 debug(f"Function time exceeded. Stopping now")
                 break_loop = True
-            break_loop = comm.bcast(break_loop, root=0)
 
+        if (rank == 0) & (p.auto_stop > 0) & (i > p.minimum_cycle):
+            p_index = int(i / p.auto_stop)
+            if int(min_potential_energies[p_index - 1] * (10 ** p.auto_stop_sf)) == int(min_potential_energies[i - 1] * (10 ** p.auto_stop_sf)):
+                debug(f"compared to loop {p_index} where min energy is {min_potential_energies[p_index - 1]} "
+                      f" no big improvements has been found, thus stopping calculation " )
+                break_loop = True
+        break_loop = comm.bcast(break_loop, root=0)
         if break_loop:
             break
 
@@ -270,7 +302,8 @@ def artificial_bee_colony_algorithm():
         # TODO directory and file names should also be in the config file
         store_results_database(local_minima,
                                ase.db.connect(os.path.join(os.path.dirname(__file__),
-                                                           "artificial_bee_colony_algorithm_results.db")), p, p.cycle)
+                                                           root_directory + "/artificial_bee_colony_algorithm_results.db")),
+                               p, p.maximum_cycle)
         debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
         debug(f"total time took {MPI.Wtime() - setup_start_time}")
 

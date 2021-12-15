@@ -21,6 +21,7 @@ def onlooker_bee_func(pop, pop_size, cluster_size, calc, local_optimiser):
 
 def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser):
     # select random index
+    # TODO energy diff, energy to config variable
     # TODO more than one cluster could be choosed to be updated ?
     selected_index = get_index(pop)
     f = randrange(1000) / 1000.0

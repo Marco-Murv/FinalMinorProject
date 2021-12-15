@@ -1,8 +1,22 @@
-cluster_radius: 3.5
-cluster_size: 10
-cycle: 10
-is_parallel: 1
-pop_size: 18
-run_id: 66
-time_out: -1
-view_traj: 0
+cluster_config:
+  cluster_radius: 3.5
+  cluster_size: 20
+  pop_size: 24
+employed_bee_config:
+  enable: 1
+  monte_carlo_search_f: 0.13
+  search_method: 1
+  search_size: 4
+onlooker_bee_config:
+  enable: 1
+run_config:
+  auto_stop: 1.4
+  auto_stop_sf: 2
+  is_parallel: 1
+  maximum_cycle: 999999999
+  minimum_cycle: 10
+  run_id: 0
+  time_out: 30
+  view_traj: 0
+scout_bee_config:
+  enable: 0
