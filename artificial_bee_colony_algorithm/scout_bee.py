@@ -77,7 +77,7 @@ def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_
         artificial_bee_colony_algorithm.optimise_local(new_clusters, calc, local_optimiser, comm.Get_size())
         new_pop += new_clusters
 
-    if update_energies == 1:
+    if update_energies == 1 & rank == 0:
         if loop_index >= check_every_loop:  # if a local minima hasn't been updated for 'check_every_loop' loops, then replace with new cluster
             for idx, a in enumerate(new_pop):
                 if new_pop[idx].get_potential_energy() in local_minima_per_loop[loop_index % check_every_loop]:

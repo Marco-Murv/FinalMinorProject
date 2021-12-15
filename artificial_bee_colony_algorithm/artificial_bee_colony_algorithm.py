@@ -285,7 +285,7 @@ def artificial_bee_colony_algorithm():
             p_index = int(i / p.auto_stop)
             if int(min_potential_energies[p_index - 1] * (10 ** p.auto_stop_sf)) == int(min_potential_energies[i - 1] * (10 ** p.auto_stop_sf)):
                 debug(f"compared to loop {p_index} where min energy is {min_potential_energies[p_index - 1]} "
-                      f" no big improvements has been found, thus stopping calculation " )
+                      f" no big improvements have been found, thus stopping calculation " )
                 break_loop = True
         break_loop = comm.bcast(break_loop, root=0)
         if break_loop:
