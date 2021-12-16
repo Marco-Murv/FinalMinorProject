@@ -1,27 +1,25 @@
 #!/bin/python3
+import os
+import sys
+import time
 from dataclasses import dataclass
+from datetime import datetime as dt
+from typing import List
 
+import ase.db
 import numpy as np
 import yaml
 from ase import Atoms
 from ase.calculators.lj import LennardJones
+from ase.io.trajectory import Trajectory
 from ase.optimize import LBFGS
-import ase.db
-import os
-from typing import List
-import argparse
-import sys
+from ase.visualize import view
+from mpi4py import MPI
+
 import employee_bee
 import onlooker_bee
-import scout_bee
-from datetime import datetime as dt
 import process
-import time
-from mpi4py import MPI
-from ase.io.trajectory import Trajectory
-from ase.visualize import view
-
-cluster_str = 'H'
+import scout_bee
 
 
 def debug(*args, **kwargs) -> None:
@@ -29,7 +27,8 @@ def debug(*args, **kwargs) -> None:
     Alias for print() function.
     This can easily be redefined to disable all output.
     """
-    print("[DEBUG]: ", flush=True, *args, **kwargs)
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        print("[DEBUG]: ", flush=True, *args, **kwargs)
 
 
 def config_info(config):
@@ -45,7 +44,7 @@ def config_info(config):
     print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
     print(f"| {f'cluster size       : {config.cluster_size}':{n}s}|")
     print(f"| {f'Population size    : {config.pop_size}':{n}s}|")
-    print(f"| {f'Cycle              : {config.cycle}':{n}s}|")
+    print(f"| {f'Cycle              : {config.minimum_cycle}':{n}s}|")
 
     print(" ---------------------------------------------------------------- ")
 
@@ -56,10 +55,25 @@ class Config:
     pop_size: int = None
     cluster_radius: float = None
     run_id: int = None
-    cycle: int = None
+    minimum_cycle: int = None
+    maximum_cycle: int = None
     calc = LennardJones(sigma=1.0, epsilon=1.0)  # TODO: Change parameters
     local_optimiser = LBFGS
     is_parallel = 0
+    time_out = 0
+    view_traj = 0
+    eb_search_method = 0
+    eb_search_size = 4
+    monte_carlo_search_f = -1
+    eb_enable = 1
+    ob_enable = 1
+    sb_enable = 1
+    auto_stop = -1
+    auto_stop_sf = 0
+    energy_diff = 0.04
+    energy_abnormal = 0.65
+    check_energies_every_x_loops = 20
+    update_energies = 1
 
 
 def get_configuration(config_file):
@@ -77,32 +91,39 @@ def get_configuration(config_file):
         yaml_conf = yaml.safe_load(os.path.expandvars(f.read()))
 
     # Create parser for terminal input
-    parser = argparse.ArgumentParser(description='Genetic Algorithm PGGO')
-    parser.add_argument('--cluster_size', type=int, metavar='',
-                        help='Number of atoms per cluster')
-    parser.add_argument('--pop_size', type=int, metavar='',
-                        help='Number of clusters in the population')
-    parser.add_argument('--cluster_radius', default=2.0, type=float, metavar='',
-                        help='Dimension of initial random clusters')
-    parser.add_argument('--run_id', type=int, metavar='',
-                        help="ID for the current run. Increments automatically")
-    parser.add_argument('--cycle', type=int, metavar='',
-                        help="size of cycle for the loop")
-    parser.add_argument('--is_parallel', type=int, metavar='',
-                        help="run in parallel")
-    p = parser.parse_args()
-
     c = Config()
     # Set variables to terminal input if possible, otherwise use config file
-    c.cluster_size = p.cluster_size or yaml_conf['cluster_size']
-    c.pop_size = p.pop_size or yaml_conf['pop_size']
-    c.cluster_radius = p.cluster_radius or yaml_conf['cluster_radius']
-    c.run_id = p.run_id or yaml_conf['run_id']
-    c.cycle = yaml_conf['cycle']
-    c.is_parallel = yaml_conf['is_parallel']
+    c.cluster_size = yaml_conf['cluster_config']['cluster_size']
+    c.pop_size = yaml_conf['cluster_config']['pop_size']
+    c.cluster_radius = yaml_conf['cluster_config']['cluster_radius']
+    c.run_id = yaml_conf['run_config']['run_id']
+    c.minimum_cycle = yaml_conf['run_config']['minimum_cycle']
+    c.maximum_cycle = yaml_conf['run_config']['maximum_cycle']
+    c.is_parallel = yaml_conf['run_config']['is_parallel']
+    c.auto_stop = yaml_conf['run_config']['auto_stop']
+    c.auto_stop_sf = yaml_conf['run_config']['auto_stop_sf']
 
+    # When time out is set to less than 0, it is set to infinity
+    if yaml_conf['run_config']['time_out'] <= 0:
+        c.time_out = float('inf')
+    else:
+        c.time_out = yaml_conf['run_config']['time_out']
+    c.view_traj = yaml_conf['run_config']['view_traj']
     # Increment run_id for next run
-    yaml_conf['run_id'] += 1
+    yaml_conf['run_config']['run_id'] += 1
+
+    c.eb_search_method = yaml_conf['employed_bee_config']['search_method']
+    c.monte_carlo_search_f = yaml_conf['employed_bee_config']['monte_carlo_search_f']
+    c.eb_search_size = yaml_conf['employed_bee_config']['search_size']
+    c.eb_enable = yaml_conf['employed_bee_config']['enable']
+
+    c.ob_enable = yaml_conf['onlooker_bee_config']['enable']
+
+    c.sb_enable = yaml_conf['scout_bee_config']['enable']
+    c.energy_diff = yaml_conf['scout_bee_config']['energy_difference']
+    c.energy_abnormal = yaml_conf['scout_bee_config']['energy_abnormal']
+    c.check_energies_every_x_loops = yaml_conf['scout_bee_config']['check_energies_every_x_loops']
+    c.update_energies = yaml_conf['scout_bee_config']['update_energies']
     with open(config_file, 'w') as f:
         yaml.dump(yaml_conf, f)
 
@@ -110,7 +131,7 @@ def get_configuration(config_file):
 
 
 def generate_cluster_with_position(p, cluster_size) -> Atoms:
-    return Atoms(cluster_str + str(cluster_size), p)
+    return Atoms('H' + str(cluster_size), p)
 
 
 def generate_cluster(cluster_size, radius) -> Atoms:
@@ -122,7 +143,7 @@ def generate_cluster(cluster_size, radius) -> Atoms:
     Returns:
         new_cluster (Atoms) : Randomly generated cluster
     """
-    return Atoms(cluster_str + str(cluster_size),
+    return Atoms('H' + str(cluster_size),
                  np.random.uniform(-radius / 2, radius / 2, (cluster_size, 3)).tolist())
 
 
@@ -161,11 +182,13 @@ def optimise_local(population, calc, optimiser, size) -> List[Atoms]:
         (List[Atoms])           : Optimised population
     """
 
-    if size == 1: return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
-    else :
+    if size == 1:
+        return [optimise_local_each(cluster, calc, optimiser).get_potential_energy() for cluster in population]
+    else:
         comm = MPI.COMM_WORLD
 
-        splitted_population = split(population, comm.Get_size())  # divides the array into n parts to divide over processors
+        splitted_population = split(population,
+                                    comm.Get_size())  # divides the array into n parts to divide over processors
         population = comm.scatter(splitted_population, root=0)
 
         result = []
@@ -179,7 +202,8 @@ def optimise_local(population, calc, optimiser, size) -> List[Atoms]:
             optimised_clusters = [i for i in optimised_clusters if i]
             optimised_clusters = [item for sublist in optimised_clusters for item in sublist]
             return optimised_clusters
-        else: return []
+        else:
+            return []
 
 
 def store_results_database(pop, db, c, cycle):
@@ -190,7 +214,7 @@ def store_results_database(pop, db, c, cycle):
     @param c: the configuration information of the GA run
     @return: exit code 0
     """
-
+    # TODO separation between local minimas and global minima
     for cluster in pop:
         last_id = db.write(cluster, pop_size=c.pop_size,
                            cluster_size=c.cluster_size, run_id=c.run_id,
@@ -198,6 +222,7 @@ def store_results_database(pop, db, c, cycle):
     return 0
 
 
+# TODO change the strutuer of config file , look at the genetic algorithm config
 def artificial_bee_colony_algorithm():
     tic = time.perf_counter()
     setup_start_time = MPI.Wtime()
@@ -206,12 +231,15 @@ def artificial_bee_colony_algorithm():
     total_p = comm.Get_size()
     if rank == 0:
         # Parse possible input, otherwise use default parameters
+        # TODO directory and file names should also be in the config file
         p = get_configuration('config/run_config.yaml')
         config_info(p)
-        # generate initial population
+        # Generate initial population and optimise locally
         population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius)
         optimise_local(population, p.calc, p.local_optimiser, 1)
-        # Generate initial population and optimise locally
+
+        # Set scout bee variable
+        scout_bee.check_every_loop = p.check_energies_every_x_loops
     else:
         population = None
         p = None
@@ -220,54 +248,71 @@ def artificial_bee_colony_algorithm():
     comm.Barrier()
 
     show_calc_min = 1
-    eb_mutation_size = 3
-    if rank == 0:
-        debug(f"Set up took {MPI.Wtime() - setup_start_time}")
+    debug(f"Set up took {MPI.Wtime() - setup_start_time}")
     cycle_start_time = MPI.Wtime()
-    break_loop =False
-    time_out = 20
-    for i in range(1, p.cycle +1):
-        population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser, comm, rank, total_p, p.is_parallel, eb_mutation_size)
-        if rank == 0:
-            population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc, p.local_optimiser)
+    break_loop = False
+    min_potential_energies = np.array([])
+
+    for i in range(1, p.maximum_cycle + 1):
+        if p.eb_enable == 1:
+            population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc,
+                                                        p.local_optimiser,
+                                                        comm, rank, total_p, p.is_parallel, p.eb_search_size,
+                                                        p.eb_search_method, p.monte_carlo_search_f)
+        if (p.ob_enable == 1) & (rank == 0):
+            population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc,
+                                                        p.local_optimiser)
         population = comm.bcast(population, root=0)
-        population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc, p.local_optimiser, comm, rank, 0.4, 0.65)
-        population = comm.bcast(population, root=0)
+
+        if p.sb_enable == 1:
+            population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc,
+                                                  p.local_optimiser, comm, rank, p.energy_diff, p.energy_abnormal, i - 1, p.is_parallel, p.update_energies)
+            population = comm.bcast(population, root=0)
 
         if rank == 0:
             if (i % show_calc_min) == 0:
-                debug(f"Global optimisation at loop {i}:{np.min([cluster.get_potential_energy() for cluster in population])}")
+                min_e = np.min([cluster.get_potential_energy() for cluster in population])
+                min_potential_energies = np.append(min_potential_energies, min_e)
+                debug(
+                    f"Global optimisation at loop {i}:{min_e}")
 
-        if time.perf_counter() -   tic >= time_out: # if algorithm didn't stop after x seconds, stop the algorithm
+        if (time.perf_counter() - tic >= p.time_out) & (i > p.minimum_cycle):  # if algorithm didn't stop after x seconds, stop the algorithm
             if rank == 0:
                 debug(f"Function time exceeded. Stopping now")
                 break_loop = True
-            break_loop = comm.bcast(break_loop, root=0)
 
+        if (rank == 0) & (p.auto_stop > 0) & (i > p.minimum_cycle):
+            p_index = int(i / p.auto_stop)
+            if int(min_potential_energies[p_index - 1] * (10 ** p.auto_stop_sf)) == int(min_potential_energies[i - 1] * (10 ** p.auto_stop_sf)):
+                debug(f"compared to loop {p_index} where min energy is {min_potential_energies[p_index - 1]} "
+                      f" no big improvements have been found, thus stopping calculation " )
+                break_loop = True
+        break_loop = comm.bcast(break_loop, root=0)
         if break_loop:
             break
 
-    if rank == 0:
-        if p.is_parallel == 1:
-            debug(f"It took {MPI.Wtime() - cycle_start_time} with {total_p} processors")
-        else:
-            debug(f"It took {MPI.Wtime()- cycle_start_time} without parallelization")
+    debug(f"It took {MPI.Wtime() - cycle_start_time} with {total_p} processors")
 
     if rank == 0:
         # filter out local minima that are too similar and print out the results
         local_minima = process.select_local_minima(population)
         process.print_stats(local_minima)
 
-        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj", "w")
+        root_directory = os.path.dirname(__file__)
+        trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj", "w")
         for cluster in local_minima:
             trajectory.write(cluster)
         trajectory.close()
-        trajectory = Trajectory(f"results/abc_{p.cluster_size}.traj")
-        view(trajectory)
+        if p.view_traj == 1:
+            trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj")
+            view(trajectory)
+
         db_start_time = MPI.Wtime()
+        # TODO directory and file names should also be in the config file
         store_results_database(local_minima,
                                ase.db.connect(os.path.join(os.path.dirname(__file__),
-                                                           "artificial_bee_colony_algorithm_results.db")), p, p.cycle)
+                                                           root_directory + "/artificial_bee_colony_algorithm_results.db")),
+                               p, p.maximum_cycle)
         debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
         debug(f"total time took {MPI.Wtime() - setup_start_time}")
 
