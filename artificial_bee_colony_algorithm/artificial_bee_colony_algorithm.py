@@ -143,8 +143,12 @@ def generate_cluster(cluster_size, radius) -> Atoms:
     Returns:
         new_cluster (Atoms) : Randomly generated cluster
     """
-    return Atoms('H' + str(cluster_size),
+    a = Atoms('H' + str(cluster_size),
                  np.random.uniform(-radius / 2, radius / 2, (cluster_size, 3)).tolist())
+    p = a.get_tags()
+    p[0] = 4
+    a.set_tags(p)
+    return a
 
 
 def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:

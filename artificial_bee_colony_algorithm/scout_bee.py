@@ -21,10 +21,23 @@ def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser
 def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, energy_diff,
                             energy_abnormal, loop_index, update_energies):
     minimal_pe = sys.maxsize  # lowest potential energy
-
+    popcp = pop.copy()
     for cluster in pop:
         pe = cluster.get_potential_energy()
         if pe < minimal_pe: minimal_pe = pe
+    result1 = []
+    for i in range(s_n):
+        if (pop[i].get_tags()[0] >= 0) | (minimal_pe ==pop[i].get_potential_energy()):
+            p = pop[i].get_tags()
+            p[0] = p[0] - 1
+            pop[i].set_tags(p)
+            result1.append(pop[i])
+    pop = result1
+
+
+
+
+
 
     splitted_pop = split(pop, comm.Get_size())  # divides the array into n parts to divide over processors
     pop = comm.scatter(splitted_pop, root=0)
@@ -69,6 +82,8 @@ def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_
     """
 
     new_pop = [cluster for [cluster, energy] in local_minima]
+    #TODO
+    pop = popcp
     if len(pop) != len(new_pop):  # replace the old removed clusters with new clusters
         # if n clusters were removed, then n new clusters are added
         new_clusters = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius)[
