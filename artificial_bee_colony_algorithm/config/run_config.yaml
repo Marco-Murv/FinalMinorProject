@@ -4,7 +4,7 @@ cluster_config:
   pop_size: 24
 employed_bee_config:
   enable: 1
-  monte_carlo_search_f: 0.04
+  monte_carlo_search_f: 0.035
   search_method: 1
   search_size: 4
 onlooker_bee_config:
@@ -15,11 +15,12 @@ run_config:
   is_parallel: 1
   maximum_cycle: 999999999
   minimum_cycle: 10
-  run_id: 122
+  run_id: 19
   time_out: 30
   view_traj: 0
 scout_bee_config:
   check_energies_every_x_loops: 6
+  count: 3
   enable: 1
   energy_abnormal: 0.6
   energy_difference: 0.06

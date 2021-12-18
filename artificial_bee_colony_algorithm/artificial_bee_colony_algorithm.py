@@ -74,6 +74,7 @@ class Config:
     energy_abnormal = 0.65
     check_energies_every_x_loops = 20
     update_energies = 1
+    sb_count =4
 
 
 def get_configuration(config_file):
@@ -124,17 +125,23 @@ def get_configuration(config_file):
     c.energy_abnormal = yaml_conf['scout_bee_config']['energy_abnormal']
     c.check_energies_every_x_loops = yaml_conf['scout_bee_config']['check_energies_every_x_loops']
     c.update_energies = yaml_conf['scout_bee_config']['update_energies']
+    c.update_energies = yaml_conf['scout_bee_config']['count']
     with open(config_file, 'w') as f:
         yaml.dump(yaml_conf, f)
 
     return c
 
 
-def generate_cluster_with_position(p, cluster_size) -> Atoms:
-    return Atoms('H' + str(cluster_size), p)
+def generate_cluster_with_position(p, cluster_size, counter) -> Atoms:
+    a = Atoms('C' + str(cluster_size),
+              p)
+    tag = a.get_tags()
+    tag[0] = counter
+    a.set_tags(tag)
+    return a
 
 
-def generate_cluster(cluster_size, radius) -> Atoms:
+def generate_cluster(cluster_size, radius, counter) -> Atoms:
     """Generate a random cluster with set number of atoms
     The atoms will be placed within a (radius x radius x radius) cube.
     Args:
@@ -143,15 +150,15 @@ def generate_cluster(cluster_size, radius) -> Atoms:
     Returns:
         new_cluster (Atoms) : Randomly generated cluster
     """
-    a = Atoms('H' + str(cluster_size),
+    a = Atoms('C' + str(cluster_size),
                  np.random.uniform(-radius / 2, radius / 2, (cluster_size, 3)).tolist())
     p = a.get_tags()
-    p[0] = 4
+    p[0] = counter
     a.set_tags(p)
     return a
 
 
-def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
+def generate_population(popul_size, cluster_size, radius, counter) -> List[Atoms]:
     """Generate initial population.
     Args:
         popul_size (int)    : number of clusters in the population
@@ -160,7 +167,7 @@ def generate_population(popul_size, cluster_size, radius) -> List[Atoms]:
     Returns:
         (List[Atoms])       : List of clusters
     """
-    return [generate_cluster(cluster_size, radius) for i in range(popul_size)]
+    return [generate_cluster(cluster_size, radius, counter) for i in range(popul_size)]
 
 
 def optimise_local_each(cluster, calc, optimiser) -> Atoms:
@@ -239,7 +246,7 @@ def artificial_bee_colony_algorithm():
         p = get_configuration('config/run_config.yaml')
         config_info(p)
         # Generate initial population and optimise locally
-        population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius)
+        population = generate_population(p.pop_size, p.cluster_size, p.cluster_radius, p.sb_count)
         optimise_local(population, p.calc, p.local_optimiser, 1)
 
         # Set scout bee variable
@@ -262,15 +269,15 @@ def artificial_bee_colony_algorithm():
             population = employee_bee.employee_bee_func(population, p.pop_size, p.cluster_size, p.calc,
                                                         p.local_optimiser,
                                                         comm, rank, total_p, p.is_parallel, p.eb_search_size,
-                                                        p.eb_search_method, p.monte_carlo_search_f)
+                                                        p.eb_search_method, p.monte_carlo_search_f, p.sb_count)
         if (p.ob_enable == 1) & (rank == 0):
             population = onlooker_bee.onlooker_bee_func(population, p.pop_size, p.cluster_size, p.calc,
-                                                        p.local_optimiser)
+                                                        p.local_optimiser, p.sb_count)
         population = comm.bcast(population, root=0)
 
         if p.sb_enable == 1:
             population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc,
-                                                  p.local_optimiser, comm, rank, p.energy_diff, p.energy_abnormal, i - 1, p.is_parallel, p.update_energies)
+                                                  p.local_optimiser, comm, rank, p.energy_diff, p.energy_abnormal, i - 1, p.is_parallel, p.update_energies, p.sb_count)
             population = comm.bcast(population, root=0)
 
         if rank == 0:
