@@ -4,7 +4,7 @@ import artificial_bee_colony_algorithm
 import employee_bee
 
 
-def onlooker_bee_func(pop, pop_size, cluster_size, calc, local_optimiser):
+def onlooker_bee_func(pop, pop_size, cluster_size, calc, local_optimiser, counter):
     '''
 
     :param pop: poputlaion
@@ -15,11 +15,11 @@ def onlooker_bee_func(pop, pop_size, cluster_size, calc, local_optimiser):
     :return:
     '''
     if True:
-        pop = search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser)
+        pop = search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser,counter)
     return pop
 
 
-def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser):
+def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimiser, counter):
     # select random index
     # TODO energy diff, energy to config variable
     # TODO more than one cluster could be choosed to be updated ?
@@ -27,7 +27,7 @@ def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimis
     f = randrange(1000) / 1000.0
     new_x = artificial_bee_colony_algorithm.optimise_local_each(
         artificial_bee_colony_algorithm.generate_cluster_with_position(employee_bee.calculate_new_position_monte_carlo(selected_index, pop, pop_size, 4, f),
-                                                                       cluster_size), calc, local_optimiser)
+                                                                       cluster_size, counter), calc, local_optimiser)
     if new_x.get_potential_energy() <= pop[selected_index].get_potential_energy():
         pop[selected_index] = new_x
     elif False:
