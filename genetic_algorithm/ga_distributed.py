@@ -123,7 +123,7 @@ def ga_distributed():
         pop_fitness = fitness(energies, c.fitness_func)
         children = mating(pop, pop_fitness, c.children_perc /
                           num_procs, c.mating_method)
-        
+
         # Define sub-population on every rank (only for mutating)
         chunk = len(pop) // num_procs
         sub_pop = pop[rank * chunk:(rank + 1) * chunk]
