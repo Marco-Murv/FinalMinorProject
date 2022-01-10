@@ -1,8 +1,8 @@
 general:
   cluster_radius: 2.0
-  cluster_size: 4
+  cluster_size: 10
   delta_energy_thr: 0.1
-  pop_size: 5
+  pop_size: 15
 mating:
   children_perc: 0.8
   fitness_func: exponential
@@ -11,7 +11,7 @@ results:
   db_file: genetic_algorithm_results.db
   results_dir: results
 reuse_state: false
-run_id: 29
+run_id: 33
 show_plot: true
 stop_conditions:
   max_gen: 50

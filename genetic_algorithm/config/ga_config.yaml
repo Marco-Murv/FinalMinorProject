@@ -1,6 +1,6 @@
 general:
   cluster_radius: 2.0
-  cluster_size: 4
+  cluster_size: 10
   delta_energy_thr: 0.1
   pop_size: 5
 mating:
