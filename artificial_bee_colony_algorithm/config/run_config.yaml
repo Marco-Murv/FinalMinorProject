@@ -10,13 +10,13 @@ employed_bee_config:
 onlooker_bee_config:
   enable: 1
 run_config:
-  auto_stop: 1.4
+  auto_stop: -1
   auto_stop_sf: 2
-  is_parallel: 1
-  maximum_cycle: 999999999
+  is_parallel: 0
+  maximum_cycle: 1000
   minimum_cycle: 10
-  run_id: 25
-  time_out: 30
+  run_id: 56
+  time_out: -1
   view_traj: 0
 scout_bee_config:
   check_energies_every_x_loops: 6
@@ -24,4 +24,4 @@ scout_bee_config:
   enable: 1
   energy_abnormal: 0.6
   energy_difference: 0.06
-  update_energies: 1
+  update_energies: 0
