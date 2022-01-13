@@ -20,7 +20,7 @@ mpiexec -n P python3 artificial_bee_colony_algorithm.py
 ```
 ### Configuration
 
-```
+```yaml
 cluster_config:
   # Radius of the sphere the initial atoms configuration
   # is uniformly distributed in   
@@ -30,7 +30,7 @@ cluster_config:
   # number of clusters in the population
   pop_size: 24
 employed_bee_config:
-  # Enablie the employed bee
+  # Enable the employed bee
   enable: 1
   # monte carlo search is x_i +f*(x_k1+x_k2-x_k3-x_k3)
   # where k1 ~ k4 is random cluster from the population
@@ -60,17 +60,24 @@ run_config:
   run_id: 19
   # Stopping the loop after set time. To disable -1.
   time_out: 30
-  # view trajactory at the end
+  # view trajectory at the end
   view_traj: 0
 scout_bee_config:
+  # the scout bee removes a cluster when a cluster is not updated for x loops on other bees and replaces 
+  # it with a new cluster to look for other local minima
   check_energies_every_x_loops: 6
-  # the scout bee removes the cluster when cluster is not updated for 
-  # few loops on other bees, which means that cluster is local minima. 
-  # To disable -1.
-  count: 3
-  enable: 1
-  energy_abnormal: 0.6
-  energy_difference: 0.06
+  # enable/disable cluster renewal when cluster is not updated for x loops
   update_energies: 1
-
+  # specifies after how many iterations an unchanged energy from a cluster should be considered a local minima
+  count: 3
+  # enable/disable the scout bee
+  enable: 1
+  # scout bee scans through the list of current clusters and finds the cluster with the lowest energy. It only
+  # continues with the clusters that are close to the lowest energy found. How close the energies should be is specified 
+  # by this value. If the lowest energy is -10 and energy_abnormal = 0.6, then it only continues with clusters that have 
+  # energies between -10 - (-10 * 0.6) = -4 and -10.
+  energy_abnormal: 0.6
+  # if two clusters are (almost) similar in energies, it only keeps the lowest. Similarity is based on this value. For
+  # example: there are two clusters with energies -74 and -75 and this value is set to 1, it will only keep -75.
+  energy_difference: 0.06
 ```
