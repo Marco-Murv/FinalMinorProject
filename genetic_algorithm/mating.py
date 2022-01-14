@@ -11,6 +11,16 @@ from typing import List
 import math as m
 
 
+def correct_if_too_close(coords, atol):
+    for i in range(len(coords)):
+        for j in range(len(coords[:i])):
+            while np.allclose(coords[i], coords[j], atol=atol):
+                coords[i] = [coord + atol * np.random.rand()
+                             for coord in coords[i]]
+
+    return coords
+
+
 def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
     """
     Making child from two parents
@@ -39,12 +49,7 @@ def make_child(parent1, parent2, atol=1e-8) -> List[Atoms]:
     coords = np.concatenate((coords_p1[coords_p1[:, 2] >= z_ctr_p1] - z_ctr_p1,
                              coords_p2[coords_p2[:, 2] < z_ctr_p2] - z_ctr_p2))
 
-    for i in range(len(coords)):
-        for j in range(len(coords[:i])):
-            while np.allclose(coords[i], coords[j], atol=atol):
-                print("Too close!!")
-                coords[i] = [coord + atol * np.random.rand()
-                             for coord in coords[i]]
+    coords = correct_if_too_close(coords, atol)
 
     if coords.size < cluster_size:
         print("PROBLEM IN make_child: not enough atoms in the child.")

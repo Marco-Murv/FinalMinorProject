@@ -89,7 +89,6 @@ def ga_distributed():
     # =========================================================================
     # Initial population
     # =========================================================================
-    # Initialise variables
     pop = None
     energies = None
 
@@ -109,7 +108,6 @@ def ga_distributed():
     # =========================================================================
     # Main loop
     # =========================================================================
-    # Keep track of iterations
     gen = 0
     gen_no_success = 0
     done = False
@@ -121,8 +119,7 @@ def ga_distributed():
 
         # Mating - get new population
         pop_fitness = fitness(energies, c.fitness_func)
-        children = mating(pop, pop_fitness, c.children_perc /
-                          num_procs, c.mating_method)
+        children = mating(pop, pop_fitness, c.children_perc / num_procs, c.mating_method)
 
         # Define sub-population on every rank (only for mutating)
         chunk = len(pop) // num_procs
@@ -151,14 +148,13 @@ def ga_distributed():
             local_min += newborns
 
             # Natural Selection
-            pop, energies = natural_selection_step(pop, energies, c.pop_size,
-                                                   c.dE_thr)
+            pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr)
 
             # Store current best
             if energies[0] < best_min[-1].get_potential_energy():
                 debug(f"New global minimum in generation {gen:2d}: ", energies[0])
                 best_min.append(pop[0])
-                gen_no_success = 0  # This is success, so set to zero.
+                gen_no_success = 0
             else:
                 gen_no_success += 1
 
@@ -183,14 +179,14 @@ def ga_distributed():
         local_min = process_data.select_local_minima(local_min)
         process_data.print_stats(local_min)
 
-        traj_file_path = os.path.join(os.path.dirname(__file__), f"{c.results_dir}/ga_distr_{c.cluster_size}.traj")
+        traj_file_path = os.path.join(currentdir, f"{c.results_dir}/ga_distr_{c.cluster_size}.traj")
         traj_file = Trajectory(traj_file_path, 'w')
         for cluster in local_min:
             traj_file.write(cluster)
         traj_file.close()
 
         # Store in Database
-        db_file = os.path.join(os.path.dirname(__file__), c.results_dir+'/'+c.db_file)
+        db_file = os.path.join(currentdir, c.results_dir + '/' + c.db_file)
         db = ase.db.connect(db_file)
         store_results_database(best_min[-1], local_min, db, c)
 
