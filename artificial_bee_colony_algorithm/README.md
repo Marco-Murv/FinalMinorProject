@@ -18,6 +18,9 @@ the algorithms
 ```
 mpiexec -n P python3 artificial_bee_colony_algorithm.py 
 ```
+
+where `P` is the number of processors you want to run it with.
+
 ### Configuration
 
 ```yaml

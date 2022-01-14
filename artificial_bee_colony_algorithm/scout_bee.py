@@ -5,24 +5,23 @@ import numpy as np
 
 check_every_loop = 20  # this is the standard value. The actual value depends on the value in config.
 local_minima_per_loop = np.zeros(check_every_loop, dtype=object)
+removed_clusters = []
 
-def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, energy_diff,
-                   energy_abnormal, loop_index, is_parallel, update_energies, counter):
+def scout_bee_func(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, energy_diff, energy_abnormal, loop_index, is_parallel, update_energies, counter):
+    print(len(removed_clusters))
     if is_parallel == 1:
-        return scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank,
-                                       energy_diff, energy_abnormal, loop_index, update_energies, counter)
+        return scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, energy_diff, energy_abnormal, loop_index, update_energies, counter)
     else:
-        return scout_bee_func_serial(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm,
-                                     energy_diff, energy_abnormal, loop_index, update_energies, counter)
+        return scout_bee_func_serial(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, energy_diff, energy_abnormal, loop_index, update_energies, counter)
 
 
-def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, energy_diff,
-                            energy_abnormal, loop_index, update_energies, counter):
+def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, rank, energy_diff, energy_abnormal, loop_index, update_energies, counter):
     minimal_pe = sys.maxsize  # lowest potential energy
     popcp = pop.copy()
     for cluster in pop:
         pe = cluster.get_potential_energy()
         if pe < minimal_pe: minimal_pe = pe
+
     result1 = []
     for i in range(s_n):
         if (pop[i].get_tags()[0] >= 0) | (minimal_pe ==pop[i].get_potential_energy()):
@@ -44,6 +43,8 @@ def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_
         if (cluster.get_potential_energy() / minimal_pe) >= energy_abnormal:
             if cluster.get_potential_energy() < 0:
                 result.append(cluster)
+        else: removed_clusters.append(cluster)
+
     new_pop = comm.gather(result, root=0)  # gather the result from all processes to master
     if rank == 0:
         new_pop = [i for i in new_pop if i]
@@ -94,10 +95,10 @@ def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_
         if loop_index >= check_every_loop:  # if a local minima hasn't been updated for 'check_every_loop' loops, then replace with new cluster
             for idx, a in enumerate(new_pop):
                 if new_pop[idx].get_potential_energy() in local_minima_per_loop[loop_index % check_every_loop]:
+                    removed_clusters.append(new_pop[idx])
                     new_cluster = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius, counter)[0]
                     new_cluster.calc = calc
-                    artificial_bee_colony_algorithm.optimise_local([new_cluster], calc, local_optimiser,
-                                                                   comm.Get_size())
+                    artificial_bee_colony_algorithm.optimise_local([new_cluster], calc, local_optimiser, comm.Get_size())
                     new_pop[idx] = new_cluster
 
         local_minima = np.array([])
@@ -108,8 +109,7 @@ def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_
     return new_pop
 
 
-def scout_bee_func_serial(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, energy_diff,
-                          energy_abnormal, loop_index, update_energies,counter):
+def scout_bee_func_serial(pop, s_n, cluster_size, cluster_radius, calc, local_optimiser, comm, energy_diff, energy_abnormal, loop_index, update_energies,counter):
     minimal_pe = sys.maxsize  # lowest potential energy
 
     for cluster in pop:
@@ -121,6 +121,7 @@ def scout_bee_func_serial(pop, s_n, cluster_size, cluster_radius, calc, local_op
         if (cluster.get_potential_energy() / minimal_pe) >= energy_abnormal:
             if cluster.get_potential_energy() < 0:
                 new_pop.append(cluster)
+        else: removed_clusters.append(cluster)
 
     energy_diff = energy_diff
     energies = [cluster.get_potential_energy() for cluster in new_pop]
@@ -141,6 +142,7 @@ def scout_bee_func_serial(pop, s_n, cluster_size, cluster_radius, calc, local_op
         # if n clusters were removed, then n new clusters are added
         new_clusters = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius, counter)[
                        :len(pop) - len(new_pop)]
+
         for cluster in new_clusters: cluster.calc = calc
         artificial_bee_colony_algorithm.optimise_local(new_clusters, calc, local_optimiser, comm.Get_size())
         new_pop += new_clusters
@@ -149,10 +151,10 @@ def scout_bee_func_serial(pop, s_n, cluster_size, cluster_radius, calc, local_op
         if loop_index >= check_every_loop:  # if a local minima hasn't been updated for 'check_every_loop' loops, then replace with new cluster
             for idx, a in enumerate(new_pop):
                 if new_pop[idx].get_potential_energy() in local_minima_per_loop[loop_index % check_every_loop]:
+                    removed_clusters.append(new_pop[idx])
                     new_cluster = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius, counter)[0]
                     new_cluster.calc = calc
-                    artificial_bee_colony_algorithm.optimise_local([new_cluster], calc, local_optimiser,
-                                                                   comm.Get_size())
+                    artificial_bee_colony_algorithm.optimise_local([new_cluster], calc, local_optimiser, comm.Get_size())
                     new_pop[idx] = new_cluster
 
         local_minima = np.array([])
@@ -171,3 +173,6 @@ def split(a, n):
 
     k, m = divmod(len(a), n)
     return list(a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+
+def get_removed_clusters():
+    return removed_clusters

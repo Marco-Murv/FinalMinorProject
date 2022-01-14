@@ -44,7 +44,7 @@ def config_info(config):
     print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
     print(f"| {f'cluster size       : {config.cluster_size}':{n}s}|")
     print(f"| {f'Population size    : {config.pop_size}':{n}s}|")
-    print(f"| {f'Cycle              : {config.minimum_cycle}':{n}s}|")
+    print(f"| {f'Cycle              : {config.maximum_cycle}':{n}s}|")
 
     print(" ---------------------------------------------------------------- ")
 
@@ -306,7 +306,11 @@ def artificial_bee_colony_algorithm():
 
     if rank == 0:
         # filter out local minima that are too similar and print out the results
-        local_minima = process.select_local_minima(population) #TODO: ALL local minima (not just final one)
+        local_minima = process.select_local_minima(population)
+
+        removed_clusters = scout_bee.get_removed_clusters()
+        for cluster in removed_clusters: local_minima.append(cluster)
+
         process.print_stats(local_minima)
 
         traj_file_path = os.path.join(os.path.dirname(__file__), "results/abc_5.traj")
