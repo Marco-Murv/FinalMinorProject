@@ -41,7 +41,7 @@ def search_neighbor_monte_carlo(pop, pop_size, cluster_size, calc, local_optimis
 def get_index(pop):
     # TODO probability should be a config variable
     random_n = randrange(10)
-    if random_n > 2:
+    if random_n > 0:
         return get_index_best(pop)
     else:
         return get_index_random(pop)

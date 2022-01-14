@@ -26,7 +26,7 @@ def employee_bee_func(pop, s_n, cluster_size, calc, local_optimiser, comm, rank,
         if rank == 0:
             # not parallelized version
             return employee_bee_mutation_non_parallel(pop, s_n, cluster_size, calc, local_optimiser, eb_mutation_size,
-                                                      comm, rank, total_p)
+                                                      comm, rank, total_p, counter, monte_carlo_f)
 
 
 def select_random_cluster_mutation(population, n, crr_i):
@@ -107,7 +107,7 @@ def employee_bee_mutation_parallel(pop, s_n, cluster_size, calc, local_optimiser
         return None
 
 
-def employee_bee_mutation_non_parallel(pop, s_n, cluster_size, calc, local_optimiser, mutation_n, comm, rank, total_p):
+def employee_bee_mutation_non_parallel(pop, s_n, cluster_size, calc, local_optimiser, mutation_n, comm, rank, total_p, counter, monte_carlo_f):
     """
             employed bee discovers neighbor structure and creates new structure
 
@@ -125,7 +125,7 @@ def employee_bee_mutation_non_parallel(pop, s_n, cluster_size, calc, local_optim
         for i in range(len(pop)):
             new_x = artificial_bee_colony_algorithm.optimise_local_each(
                 artificial_bee_colony_algorithm.generate_cluster_with_position(
-                    calculate_new_position_mutation(i, pop, mutation_n), cluster_size, counter),
+                    calculate_new_position_monte_carlo(i, pop, s_n, mutation_n, monte_carlo_f), cluster_size, counter),
                 calc, local_optimiser)
             if new_x.get_potential_energy() <= pop_copy[i].get_potential_energy():
                 pop_copy[i] = new_x
