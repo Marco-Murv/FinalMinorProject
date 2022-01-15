@@ -44,7 +44,7 @@ def config_info(config):
     print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
     print(f"| {f'cluster size       : {config.cluster_size}':{n}s}|")
     print(f"| {f'Population size    : {config.pop_size}':{n}s}|")
-    print(f"| {f'Cycle              : {config.minimum_cycle}':{n}s}|")
+    print(f"| {f'Cycle              : {config.maximum_cycle}':{n}s}|")
 
     print(" ---------------------------------------------------------------- ")
 
@@ -256,6 +256,7 @@ def artificial_bee_colony_algorithm():
         p = None
     population = comm.bcast(population, root=0)
     p = comm.bcast(p, root=0)
+    removed_clusters = []
     comm.Barrier()
 
     show_calc_min = 1
@@ -276,8 +277,8 @@ def artificial_bee_colony_algorithm():
         population = comm.bcast(population, root=0)
 
         if p.sb_enable == 1:
-            population = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc,
-                                                  p.local_optimiser, comm, rank, p.energy_diff, p.energy_abnormal, i - 1, p.is_parallel, p.update_energies, p.sb_count)
+            population, removed_clusters = scout_bee.scout_bee_func(population, p.pop_size, p.cluster_size, p.cluster_radius, p.calc,
+                                                  p.local_optimiser, comm, rank, p.energy_diff, p.energy_abnormal, i - 1, p.is_parallel, p.update_energies, p.sb_count, removed_clusters)
             population = comm.bcast(population, root=0)
 
         if rank == 0:
@@ -305,25 +306,25 @@ def artificial_bee_colony_algorithm():
     debug(f"It took {MPI.Wtime() - cycle_start_time} with {total_p} processors")
 
     if rank == 0:
-        # filter out local minima that are too similar and print out the results
-        local_minima = process.select_local_minima(population)
-        process.print_stats(local_minima)
+        local_minima = process.select_local_minima(population) # filter out local minima that are too similar
+        for cluster in removed_clusters: local_minima.append(cluster) # add clusters that were discarded by the scout bee
+        process.print_stats(local_minima) # print out the results
 
-        root_directory = os.path.dirname(__file__)
-        trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj", "w")
+        traj_file_path = os.path.join(os.path.dirname(__file__), "results/abc_5.traj")
+        trajectory = Trajectory(traj_file_path, "w")
         for cluster in local_minima:
             trajectory.write(cluster)
         trajectory.close()
         if p.view_traj == 1:
-            trajectory = Trajectory(root_directory + "/" + f"results/abc_{p.cluster_size}.traj")
+            trajectory = Trajectory(traj_file_path)
             view(trajectory)
 
         db_start_time = MPI.Wtime()
         # TODO directory and file names should also be in the config file
-        store_results_database(local_minima,
-                               ase.db.connect(os.path.join(os.path.dirname(__file__),
-                                                           root_directory + "/artificial_bee_colony_algorithm_results.db")),
-                               p, p.maximum_cycle)
+        db_file = os.path.join(os.path.dirname(__file__), "artificial_bee_colony_algorithm_results.db")
+        db = ase.db.connect(db_file)
+        store_results_database(local_minima, db, p, p.maximum_cycle)
+
         debug(f"Saving to db took {MPI.Wtime() - db_start_time}")
         debug(f"total time took {MPI.Wtime() - setup_start_time}")
 

@@ -3,4 +3,20 @@
 
 ## Description
 
-Bacon ipsum dolor amet turducken short loin ribeye, jerky kielbasa sausage chicken t-bone beef. Kevin pork chop spare ribs, chicken meatball pork loin shank strip steak pig. Drumstick pork loin burgdoggen, bacon bresaola jowl sirloin. Doner leberkas pork buffalo beef ribs brisket filet mignon ribeye sausage tenderloin bresaola short loin cupim. Jerky buffalo sausage porchetta frankfurter salami filet mignon landjaeger capicola. Venison ham hock fatback pastrami boudin t-bone frankfurter ground round turducken turkey shoulder pig. Landjaeger flank turkey filet mignon, tail t-bone rump hamburger ham hock pastrami.
+Description of the project
+
+## Dependencies
+
+Before trying to run any of the algorithms, make sure that all the required `Python3` modules are installed correctly. On Unix-like systems, it should be sufficient to run the following from the project home directory.
+
+```bash
+    python3 -m pip instal -r requirements.txt
+```
+
+## Usage
+
+For the usage of each of the three algorithms, please refer to their dedicated `README.md` files.
+
+* Artificial Bee Colonies: [artificial_bee_colony_algorithm/README.md](artificial_bee_colony_algorithm/README.md)
+* Basin Hopping: [basin_hopping/README.md](basin_hopping/README.md)
+* Genetic Algorithm: [genetic_algorithm/README.md](genetic_algorithm/README.md)

@@ -114,7 +114,7 @@ def get_configuration(config_file):
     """
 
     # Get parameters from config file
-    config_file = os.path.join(os.path.dirname(__file__), config_file)
+    config_file = os.path.join(currentdir, config_file)
     with open(config_file) as f:
         yaml_conf = yaml.safe_load(os.path.expandvars(f.read()))
 
@@ -190,10 +190,7 @@ def generate_cluster(cluster_size, radius) -> Atoms:
     @return: new random cluster
     """
     coords = np.random.uniform(-radius / 2, radius / 2, (cluster_size, 3)).tolist()
-
-    # TODO: Can we use "mathematical dots" instead of H-atoms
     new_cluster = Atoms('H' + str(cluster_size), coords)
-
     return new_cluster
 
 
@@ -276,8 +273,7 @@ def plot_EPP(lowest_energies, highest_energies, average_energies, c):
     @param c: Configuration
     @return:
     """
-    plot_file = os.path.join(os.path.dirname(
-        __file__), f'{c.results_dir}/EPP_run_{c.run_id}.png')
+    plot_file = os.path.join(currentdir, f'{c.results_dir}/EPP_run_{c.run_id}.png')
     gens = np.arange(0, len(lowest_energies))
 
     plt.figure(1)
@@ -313,8 +309,7 @@ def get_mutants(pop, cluster_radius, cluster_size, p_static=0.05, p_dynamic=0.05
     mutants = mutators.displacement_static(pop, p_static, cluster_radius)
     mutants += mutators.displacement_dynamic(pop, p_dynamic, cluster_radius)
     mutants += mutators.rotation(pop, p_rotation)
-    mutants += mutators.replacement(pop, cluster_size,
-                                    cluster_radius, p_replacement)
+    mutants += mutators.replacement(pop, cluster_size, cluster_radius, p_replacement)
     mutants += mutators.mirror_shift(pop, cluster_size, p_mirror)
 
     return mutants
@@ -370,7 +365,8 @@ def store_results_database(global_min, local_min, db, c):
              max_no_success=c.max_no_success, run_id=c.run_id)
 
     for cluster in local_min:
-        db.write(cluster, global_min=False, pop_size=c.pop_size, cluster_size=c.cluster_size, max_gens=c.max_gen,
+        db.write(cluster, global_min=False, pop_size=c.pop_size, 
+                 cluster_size=c.cluster_size, max_gens=c.max_gen,
                  max_no_success=c.max_no_success, run_id=c.run_id)
 
     return 0
@@ -378,7 +374,7 @@ def store_results_database(global_min, local_min, db, c):
 
 def store_or_reuse_state(reuse=False):
     state_file = "random_state.txt"
-    state_file = os.path.join(os.path.dirname(__file__), state_file)
+    state_file = os.path.join(currentdir, state_file)
 
     if not reuse:
         with open(state_file, 'wb+') as f:
@@ -389,6 +385,8 @@ def store_or_reuse_state(reuse=False):
         with open(state_file, 'rb') as f:
             reuse_state = pickle.load(f)
             np.random.set_state(reuse_state)
+    
+    return 0
 
 
 def genetic_algorithm() -> None:
@@ -464,8 +462,7 @@ def genetic_algorithm() -> None:
         local_min += newborns
 
         # Natural selection
-        pop, energies = natural_selection_step(
-            pop, energies, c.pop_size, c.dE_thr)
+        pop, energies = natural_selection_step(pop, energies, c.pop_size, c.dE_thr)
 
         # Store info about lowest, average, and highest energy of this gen for EPP
         lowest_energies.append(energies[0])
@@ -490,16 +487,14 @@ def genetic_algorithm() -> None:
     local_min = process_data.select_local_minima(local_min)
     process_data.print_stats(local_min)
 
-    traj_file_path = os.path.join(os.path.dirname(
-        __file__), f"{c.results_dir}/ga_{c.cluster_size}.traj")
+    traj_file_path = os.path.join(currentdir, f"{c.results_dir}/ga_{c.cluster_size}.traj")
     traj_file = Trajectory(traj_file_path, 'w')
     for cluster in local_min:
         traj_file.write(cluster)
     traj_file.close()
 
     # Connect to database and store results
-    db_file = os.path.join(os.path.dirname(__file__),
-                           c.results_dir + '/' + c.db_file)
+    db_file = os.path.join(currentdir, c.results_dir + '/' + c.db_file)
     db = ase.db.connect(db_file)
     store_results_database(local_min[0], local_min[1:], db, c)
 

@@ -221,8 +221,7 @@ def one_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_right,
     if send_req_right is not None:
         send_req_right.wait()
     send_req_right = comm.isend(right_msg, dest=right_neighb, tag=1)
-    req_left = comm.irecv(source=left_neighb, tag=1)
-    left_clusters = req_left.wait()
+    left_clusters = comm.recv(source=left_neighb, tag=1)
 
     debug(f"    Generation {gen}: processor {rank} finished all exchanges!")
 
@@ -270,11 +269,8 @@ def bi_directional_exchange(pop, sub_pop_size, gen, comm, rank, send_req_left, s
     send_req_left = comm.isend(left_msg, dest=left_neighb, tag=1)
     send_req_right = comm.isend(right_msg, dest=right_neighb, tag=1)
 
-    recv_req_left = comm.irecv(source=left_neighb, tag=1)
-    recv_req_right = comm.irecv(source=right_neighb, tag=1)
-
-    left_clusters = recv_req_left.wait()
-    right_clusters = recv_req_right.wait()
+    left_clusters = comm.recv(source=left_neighb, tag=1)
+    right_clusters = comm.recv(source=right_neighb, tag=1)
 
     debug(f"    Generation {gen}: processor {rank} finished all exchanges!")
 
@@ -426,7 +422,7 @@ def ga_sub_populations():
             break
 
         # Exchange clusters with neighbouring processors
-        if (gen % c.gens_until_exchange) == 0:
+        if (gen > 0) and ((gen % c.gens_until_exchange) == 0):
             # Synchronise all processors before communication to make sure they all abort simultaneously before comms
             abort = check_stopping_conditions(start_time, gen_no_success, c, rank, comm)
             if abort == 0:
