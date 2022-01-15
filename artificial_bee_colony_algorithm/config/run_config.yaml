@@ -1,5 +1,5 @@
 cluster_config:
-  cluster_radius: 2
+  cluster_radius: 1.8
   cluster_size: 30
   pop_size: 24
 employed_bee_config:
@@ -15,11 +15,11 @@ run_config:
   is_parallel: 0
   maximum_cycle: 41
   minimum_cycle: 1
-  run_id: 125
+  run_id: 167
   time_out: -1
   view_traj: 0
 scout_bee_config:
-  check_energies_every_x_loops: 1
+  check_energies_every_x_loops: 2
   count: 3
   enable: 1
   energy_abnormal: 0.6
