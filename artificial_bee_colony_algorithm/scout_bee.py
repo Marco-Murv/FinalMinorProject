@@ -20,9 +20,18 @@ def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_
         pe = cluster.get_potential_energy()
         if pe < minimal_pe: minimal_pe = pe
 
+    new_pop = []
+    for cluster in pop:
+        if (cluster.get_potential_energy() / minimal_pe) >= energy_abnormal:
+            if cluster.get_potential_energy() < 0:
+                new_pop.append(cluster)
+        else:
+            if rank == 0:
+                removed_clusters.append(cluster)
+
     result1 = []
     for i in range(s_n):
-        if (pop[i].get_tags()[0] >= 0) | (minimal_pe ==pop[i].get_potential_energy()):
+        if (pop[i].get_tags()[0] >= 0) | (minimal_pe == pop[i].get_potential_energy()):
             p = pop[i].get_tags()
             p[0] = p[0] - 1
             pop[i].set_tags(p)
@@ -48,15 +57,6 @@ def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_
     #
     # removed_clusters = comm.bcast(removed_clusters)
     # new_pop = comm.bcast(new_pop)
-
-    new_pop = []
-    for cluster in pop:
-        if (cluster.get_potential_energy() / minimal_pe) >= energy_abnormal:
-            if cluster.get_potential_energy() < 0:
-                new_pop.append(cluster)
-        else:
-            if rank == 0:
-                removed_clusters.append(cluster)
 
     energy_diff = energy_diff
     energies = [cluster.get_potential_energy() for cluster in new_pop]
@@ -92,8 +92,7 @@ def scout_bee_func_parallel(pop, s_n, cluster_size, cluster_radius, calc, local_
     pop = popcp
     if len(pop) != len(new_pop):  # replace the old removed clusters with new clusters
         # if n clusters were removed, then n new clusters are added
-        new_clusters = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius, counter)[
-                       :len(pop) - len(new_pop)]
+        new_clusters = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius, counter)[:len(pop) - len(new_pop)]
         for cluster in new_clusters: cluster.calc = calc
         artificial_bee_colony_algorithm.optimise_local(new_clusters, calc, local_optimiser, comm.Get_size())
         new_pop += new_clusters
@@ -147,8 +146,7 @@ def scout_bee_func_serial(pop, s_n, cluster_size, cluster_radius, calc, local_op
     new_pop = [cluster for [cluster, energy] in local_minima]
     if len(pop) != len(new_pop):  # replace the old removed clusters with new clusters
         # if n clusters were removed, then n new clusters are added
-        new_clusters = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius, counter)[
-                       :len(pop) - len(new_pop)]
+        new_clusters = artificial_bee_colony_algorithm.generate_population(s_n, cluster_size, cluster_radius, counter)[:len(pop) - len(new_pop)]
 
         for cluster in new_clusters: cluster.calc = calc
         artificial_bee_colony_algorithm.optimise_local(new_clusters, calc, local_optimiser, comm.Get_size())

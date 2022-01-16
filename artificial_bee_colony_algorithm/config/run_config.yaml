@@ -1,7 +1,7 @@
 cluster_config:
-  cluster_radius: 1.8
-  cluster_size: 30
-  pop_size: 24
+  cluster_radius: 1.5
+  cluster_size: 40
+  pop_size: 20
 employed_bee_config:
   enable: 1
   monte_carlo_search_f: 0.035
@@ -13,9 +13,9 @@ run_config:
   auto_stop: -1
   auto_stop_sf: 2
   is_parallel: 0
-  maximum_cycle: 41
+  maximum_cycle: 20
   minimum_cycle: 1
-  run_id: 167
+  run_id: 79
   time_out: -1
   view_traj: 0
 scout_bee_config:
