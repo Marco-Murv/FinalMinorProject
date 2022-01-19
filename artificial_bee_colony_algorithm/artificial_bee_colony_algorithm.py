@@ -42,9 +42,9 @@ def config_info(config):
     print(f"| {f'Artificial Bee Colony Algorithm':{n}s}|")
     print(" ================================================================ ")
     print(f"| {f'Timestamp          : {timestamp}':{n}s}|")
-    print(f"| {f'cluster size       : {config.cluster_size}':{n}s}|")
+    print(f"| {f'Cluster size       : {config.cluster_size}':{n}s}|")
     print(f"| {f'Population size    : {config.pop_size}':{n}s}|")
-    print(f"| {f'Cycle              : {config.maximum_cycle}':{n}s}|")
+    print(f"| {f'Cycles             : {config.maximum_cycle}':{n}s}|")
 
     print(" ---------------------------------------------------------------- ")
 
