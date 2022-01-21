@@ -1,0 +1,439 @@
+Starting Simulation
+Executing sequential version
+
+ ---------------------------------------------------------------- 
+| Parallel Global Geometry Optimisation                          |
+| Genetic Algorithm                                              |
+ ================================================================ 
+| Timestamp          : 2022-01-20 12:17:46                       |
+| Time limit         : 100000 sec                                |
+| cluster size       : 30                                        |
+| Population size    : 30                                        |
+| Fitness function   : exponential                               |
+| Max gen wo success : 50                                        |
+| Maximum generations: 50                                        |
+ ---------------------------------------------------------------- 
+[DEBUG]:  New global minimum in generation  0:  -111.89872093771055
+[DEBUG]:  New global minimum in generation  1:  -119.9899642193154
+[DEBUG]:  New global minimum in generation  3:  -121.07875852296853
+[DEBUG]:  New global minimum in generation  5:  -121.79161515678435
+[DEBUG]:  New global minimum in generation  6:  -123.24740922507556
+[DEBUG]:  New global minimum in generation 15:  -123.45935362009969
+[DEBUG]:  New global minimum in generation 16:  -123.49598512903569
+[DEBUG]:  New global minimum in generation 17:  -124.21350266185802
+[DEBUG]:  New global minimum in generation 18:  -124.43113840205282
+[DEBUG]:  New global minimum in generation 20:  -124.46721787422787
+[DEBUG]:  New global minimum in generation 21:  -124.46998585741312
+[DEBUG]:  New global minimum in generation 23:  -124.47231251410615
+[DEBUG]:  New global minimum in generation 25:  -124.47256373980606
+[DEBUG]:  New global minimum in generation 26:  -124.82619809064626
+[DEBUG]:  DIVIDE BY ZERO REMOVED FROM POPULATION!
+[DEBUG]:  New global minimum in generation 28:  -124.87905691043613
+[DEBUG]:  New global minimum in generation 32:  -124.88537842845184
+[DEBUG]:  New global minimum in generation 33:  -124.91485362180869
+[DEBUG]:  New global minimum in generation 34:  -124.98525063279945
+[DEBUG]:  New global minimum in generation 35:  -124.98912908809137
+[DEBUG]:  New global minimum in generation 44:  -124.98950856457209
+[DEBUG]:  New global minimum in generation 49:  -124.9906242982309
+
+Genetic Algorithm took 983.02 seconds to execute
+
+ ---------------------------------------------------------------- 
+| Global Geometry Optimisation - Results                         |
+ ================================================================ 
+| Lowest energy local minima :                                   |
+|    -124.99                                                     |
+|    -124.89                                                     |
+|    -124.78                                                     |
+|    -124.66                                                     |
+|    -124.56                                                     |
+|                                                                |
+| Number of local minima found   : 341                           |
+ ---------------------------------------------------------------- 
+Executing with 4 processors
+--------------------------------------------------------------------------
+An MPI process has executed an operation involving a call to the
+"fork()" system call to create a child process.  Open MPI is currently
+operating in a condition that could result in memory corruption or
+other system errors; your MPI job may hang, crash, or produce silent
+data corruption.  The use of fork() (or system() or other calls that
+create child processes) is strongly discouraged.  
+
+The process that invoked fork was:
+
+  Local host:          n12-72 (PID 25955)
+  MPI_COMM_WORLD rank: 3
+
+If you are *absolutely sure* that your application will successfully
+and correctly survive a call to fork(), you may disable this warning
+by setting the mpi_warn_on_fork MCA parameter to 0.
+--------------------------------------------------------------------------
+[DEBUG]:  Started ga_distributed from rank 3
+[DEBUG]:  Started ga_distributed from rank 0
+[DEBUG]:  Started ga_distributed from rank 1
+[DEBUG]:  Started ga_distributed from rank 2
+
+ ---------------------------------------------------------------- 
+| Parallel Global Geometry Optimisation                          |
+| Genetic Algorithm                                              |
+ ================================================================ 
+| Timestamp          : 2022-01-20 12:34:54                       |
+| Time limit         : 100000 sec                                |
+| cluster size       : 30                                        |
+| Population size    : 30                                        |
+| Fitness function   : exponential                               |
+| Max gen wo success : 50                                        |
+| Maximum generations: 50                                        |
+ ---------------------------------------------------------------- 
+[DEBUG]:  New global minimum in generation  0:  -119.77009921644543
+[DEBUG]:  New global minimum in generation  2:  -120.5365213594662
+[DEBUG]:  New global minimum in generation  3:  -123.89277456945149
+[DEBUG]:  New global minimum in generation  4:  -124.04491073510636
+[DEBUG]:  New global minimum in generation  5:  -124.06330024960195
+[DEBUG]:  New global minimum in generation  6:  -124.85335265318295
+[DEBUG]:  New global minimum in generation  7:  -124.97891968627948
+[DEBUG]:  New global minimum in generation  9:  -124.9800726666176
+[DEBUG]:  New global minimum in generation 10:  -124.9913580017345
+[DEBUG]:  New global minimum in generation 12:  -125.25430046166993
+[DEBUG]:  DIVIDE BY ZERO REMOVED FROM POPULATION!
+[DEBUG]:  New global minimum in generation 23:  -125.29969271840281
+[DEBUG]:  DIVIDE BY ZERO REMOVED FROM POPULATION!
+[DEBUG]:  DIVIDE BY ZERO REMOVED FROM POPULATION!
+[DEBUG]:  New global minimum in generation 36:  -125.30216523566013
+[DEBUG]:  New global minimum in generation 50:  -125.30678749885382
+
+ga_distributed took 303.58111000061035 seconds to execute
+ ---------------------------------------------------------------- 
+| Global Geometry Optimisation - Results                         |
+ ================================================================ 
+| Lowest energy local minima :                                   |
+|    -125.31                                                     |
+|    -125.20                                                     |
+|    -125.10                                                     |
+|    -125.00                                                     |
+|    -124.89                                                     |
+|                                                                |
+| Number of local minima found   : 334                           |
+ ---------------------------------------------------------------- 
+--------------------------------------------------------------------------
+An MPI process has executed an operation involving a call to the
+"fork()" system call to create a child process.  Open MPI is currently
+operating in a condition that could result in memory corruption or
+other system errors; your MPI job may hang, crash, or produce silent
+data corruption.  The use of fork() (or system() or other calls that
+create child processes) is strongly discouraged.  
+
+The process that invoked fork was:
+
+  Local host:          n12-72 (PID 26899)
+  MPI_COMM_WORLD rank: 0
+
+If you are *absolutely sure* that your application will successfully
+and correctly survive a call to fork(), you may disable this warning
+by setting the mpi_warn_on_fork MCA parameter to 0.
+--------------------------------------------------------------------------
+Started sub-populations on processor 3!
+Started sub-populations on processor 0!
+Started sub-populations on processor 2!
+Started sub-populations on processor 1!
+
+ ---------------------------------------------------------------- 
+| Parallel Global Geometry Optimisation                          |
+| Genetic Algorithm                                              |
+ ================================================================ 
+| Timestamp          : 2022-01-20 12:40:44                       |
+| Time limit         : 100000 sec                                |
+| cluster size       : 30                                        |
+| Population size    : 30                                        |
+| Fitness function   : exponential                               |
+| Maximum generations: 50                                        |
+| Max exchanges wo success : 50                                  |
+ ---------------------------------------------------------------- 
+[DEBUG]:  Process 1 in generation 0: new global minimum at -113.63693052750799
+[DEBUG]:  Process 3 in generation 0: new global minimum at -116.60410791577063
+[DEBUG]:  Process 0 in generation 0: new global minimum at -110.7462047549485
+[DEBUG]:  Process 2 in generation 0: new global minimum at -113.57514995994045
+[DEBUG]:  Process 0 in generation 1: new global minimum at -117.37213755057661
+[DEBUG]:  Process 1 in generation 1: new global minimum at -116.40064814615684
+[DEBUG]:  Process 2 in generation 1: new global minimum at -119.5436962337334
+[DEBUG]:  Process 1 in generation 2: new global minimum at -122.73870765177857
+[DEBUG]:  Process 3 in generation 2: new global minimum at -119.00663346120535
+[DEBUG]:  Process 0 in generation 2: new global minimum at -120.44012097927641
+[DEBUG]:  Process 1 in generation 3: new global minimum at -123.93573883188267
+[DEBUG]:  Process 0 in generation 3: new global minimum at -120.58039775337008
+[DEBUG]:  Process 3 in generation 3: new global minimum at -120.6660294097463
+[DEBUG]:  Process 2 in generation 3: new global minimum at -120.90530495510328
+[DEBUG]:  Process 1 in generation 4: new global minimum at -123.95949908643733
+[DEBUG]:  Process 0 in generation 5: new global minimum at -120.58928113255783
+[DEBUG]:  Process 3 in generation 5: new global minimum at -120.69462771598353
+[DEBUG]:  Process 2 in generation 5: new global minimum at -121.90525667859686
+[DEBUG]:  Process 1 in generation 6: new global minimum at -124.45217790759646
+[DEBUG]:  Process 3 in generation 6: new global minimum at -120.69667689048352
+[DEBUG]:  Process 2 in generation 6: new global minimum at -121.92382357257772
+[DEBUG]:  Process 1 in generation 8: new global minimum at -124.46095636443583
+[DEBUG]:  Process 1 in generation 9: new global minimum at -124.46478903849574
+[DEBUG]:  Process 0 in generation 9: new global minimum at -120.60040025979087
+[DEBUG]:      Generation 10: processor 0 finished all exchanges!
+[DEBUG]:      Generation 10: processor 1 finished all exchanges!
+[DEBUG]:      Generation 10: processor 2 finished all exchanges!
+[DEBUG]:  Process 2 in generation 10: new global minimum at -124.46478903849574
+[DEBUG]:  Process 0 in generation 10: new global minimum at -124.38165307288878
+[DEBUG]:  Process 2 in generation 11: new global minimum at -124.61343304599586
+[DEBUG]:  Process 0 in generation 11: new global minimum at -124.45079299713277
+[DEBUG]:  Process 2 in generation 12: new global minimum at -124.62221657154373
+[DEBUG]:  Process 0 in generation 12: new global minimum at -124.46967279109995
+[DEBUG]:  Process 1 in generation 12: new global minimum at -124.46796003418729
+[DEBUG]:  Process 2 in generation 13: new global minimum at -124.62389175336286
+[DEBUG]:  Process 0 in generation 13: new global minimum at -124.4708670118908
+[DEBUG]:  Process 1 in generation 14: new global minimum at -124.47041985791526
+[DEBUG]:  DIVIDE BY ZERO REMOVED FROM POPULATION!
+[DEBUG]:      Generation 10: processor 3 finished all exchanges!
+[DEBUG]:  Process 3 in generation 10: new global minimum at -121.54742051927522
+[DEBUG]:  Process 3 in generation 11: new global minimum at -122.7596648686307
+[DEBUG]:  Process 3 in generation 13: new global minimum at -123.18105666002684
+[DEBUG]:  Process 3 in generation 14: new global minimum at -123.2850843085198
+[DEBUG]:  Process 3 in generation 15: new global minimum at -123.29254603619582
+[DEBUG]:      Generation 20: processor 2 finished all exchanges!
+[DEBUG]:      Generation 20: processor 3 finished all exchanges!
+[DEBUG]:      Generation 20: processor 0 finished all exchanges!
+[DEBUG]:  Process 3 in generation 20: new global minimum at -124.4708670118908
+[DEBUG]:  Process 3 in generation 21: new global minimum at -124.56434668440633
+[DEBUG]:  Process 3 in generation 22: new global minimum at -124.62226335741494
+[DEBUG]:  Process 3 in generation 23: new global minimum at -124.6243927993662
+[DEBUG]:      Generation 20: processor 1 finished all exchanges!
+[DEBUG]:  Process 1 in generation 29: new global minimum at -124.4708669269537
+[DEBUG]:      Generation 30: processor 1 finished all exchanges!
+[DEBUG]:      Generation 30: processor 3 finished all exchanges!
+[DEBUG]:  Process 1 in generation 31: new global minimum at -124.50764943895983
+[DEBUG]:  Process 1 in generation 36: new global minimum at -124.52792932677902
+[DEBUG]:      Generation 30: processor 0 finished all exchanges!
+[DEBUG]:      Generation 30: processor 2 finished all exchanges!
+[DEBUG]:  Process 2 in generation 30: new global minimum at -124.6243927993662
+[DEBUG]:      Generation 40: processor 2 finished all exchanges!
+[DEBUG]:      Generation 40: processor 1 finished all exchanges!
+[DEBUG]:      Generation 40: processor 3 finished all exchanges!
+[DEBUG]:  DIVIDE BY ZERO REMOVED FROM POPULATION!
+[DEBUG]:  Process 1 in generation 44: new global minimum at -124.6190350290589
+[DEBUG]:  DIVIDE BY ZERO REMOVED FROM POPULATION!
+[DEBUG]:  Process 1 in generation 49: new global minimum at -124.61921735714513
+[DEBUG]:      Generation 40: processor 0 finished all exchanges!
+[DEBUG]:  Process 0 in generation 40: new global minimum at -124.62389175336286
+[DEBUG]:  All results have been combined!
+
+Execution time for sub-population GA: 491.44003891944885
+ ---------------------------------------------------------------- 
+| Global Geometry Optimisation - Results                         |
+ ================================================================ 
+| Lowest energy local minima :                                   |
+|    -124.62                                                     |
+|    -124.52                                                     |
+|    -124.41                                                     |
+|    -124.31                                                     |
+|    -124.20                                                     |
+|                                                                |
+| Number of local minima found   : 322                           |
+ ---------------------------------------------------------------- 
+Executing with 6 processors
+--------------------------------------------------------------------------
+An MPI process has executed an operation involving a call to the
+"fork()" system call to create a child process.  Open MPI is currently
+operating in a condition that could result in memory corruption or
+other system errors; your MPI job may hang, crash, or produce silent
+data corruption.  The use of fork() (or system() or other calls that
+create child processes) is strongly discouraged.  
+
+The process that invoked fork was:
+
+  Local host:          n12-72 (PID 28365)
+  MPI_COMM_WORLD rank: 1
+
+If you are *absolutely sure* that your application will successfully
+and correctly survive a call to fork(), you may disable this warning
+by setting the mpi_warn_on_fork MCA parameter to 0.
+--------------------------------------------------------------------------
+[DEBUG]:  Started ga_distributed from rank 0
+[DEBUG]:  Started ga_distributed from rank 1
+[DEBUG]:  Started ga_distributed from rank 2
+[DEBUG]:  Started ga_distributed from rank 4
+[DEBUG]:  Started ga_distributed from rank 5
+
+ ---------------------------------------------------------------- 
+| Parallel Global Geometry Optimisation                          |
+| Genetic Algorithm                                              |
+ ================================================================ 
+| Timestamp          : 2022-01-20 12:49:45                       |
+| Time limit         : 100000 sec                                |
+| cluster size       : 30                                        |
+| Population size    : 30                                        |
+| Fitness function   : exponential                               |
+| Max gen wo success : 50                                        |
+| Maximum generations: 50                                        |
+ ---------------------------------------------------------------- 
+[DEBUG]:  Started ga_distributed from rank 3
+[DEBUG]:  New global minimum in generation  0:  -113.65717706835399
+[DEBUG]:  New global minimum in generation  1:  -123.33895379708358
+[DEBUG]:  New global minimum in generation  2:  -124.34850868118342
+[DEBUG]:  New global minimum in generation  3:  -125.20932717408853
+[DEBUG]:  New global minimum in generation  4:  -125.21062908459086
+[DEBUG]:  New global minimum in generation  5:  -125.21557309384686
+[DEBUG]:  New global minimum in generation  6:  -125.2260221629598
+[DEBUG]:  New global minimum in generation  8:  -125.22905910564553
+[DEBUG]:  DIVIDE BY ZERO REMOVED FROM POPULATION!
+[DEBUG]:  New global minimum in generation 37:  -125.22929600630715
+
+ga_distributed took 228.7954227924347 seconds to execute
+ ---------------------------------------------------------------- 
+| Global Geometry Optimisation - Results                         |
+ ================================================================ 
+| Lowest energy local minima :                                   |
+|    -125.23                                                     |
+|    -125.13                                                     |
+|    -125.03                                                     |
+|    -124.92                                                     |
+|    -124.82                                                     |
+|                                                                |
+| Number of local minima found   : 318                           |
+ ---------------------------------------------------------------- 
+--------------------------------------------------------------------------
+An MPI process has executed an operation involving a call to the
+"fork()" system call to create a child process.  Open MPI is currently
+operating in a condition that could result in memory corruption or
+other system errors; your MPI job may hang, crash, or produce silent
+data corruption.  The use of fork() (or system() or other calls that
+create child processes) is strongly discouraged.  
+
+The process that invoked fork was:
+
+  Local host:          n12-72 (PID 29139)
+  MPI_COMM_WORLD rank: 4
+
+If you are *absolutely sure* that your application will successfully
+and correctly survive a call to fork(), you may disable this warning
+by setting the mpi_warn_on_fork MCA parameter to 0.
+--------------------------------------------------------------------------
+Started sub-populations on processor 0!
+Started sub-populations on processor 3!
+Started sub-populations on processor 2!
+Started sub-populations on processor 4!
+Started sub-populations on processor 1!
+Started sub-populations on processor 5!
+
+ ---------------------------------------------------------------- 
+| Parallel Global Geometry Optimisation                          |
+| Genetic Algorithm                                              |
+ ================================================================ 
+| Timestamp          : 2022-01-20 12:54:19                       |
+| Time limit         : 100000 sec                                |
+| cluster size       : 30                                        |
+| Population size    : 30                                        |
+| Fitness function   : exponential                               |
+| Maximum generations: 50                                        |
+| Max exchanges wo success : 50                                  |
+ ---------------------------------------------------------------- 
+[DEBUG]:  Process 1 in generation 0: new global minimum at -95.12665747217773
+[DEBUG]:  Process 3 in generation 0: new global minimum at -103.37407348526547
+[DEBUG]:  Process 2 in generation 0: new global minimum at -114.90438370685982
+[DEBUG]:  Process 5 in generation 0: new global minimum at -103.95213537270199
+[DEBUG]:  Process 0 in generation 0: new global minimum at -112.61445834709382
+[DEBUG]:  Process 4 in generation 0: new global minimum at -104.68496443227973
+[DEBUG]:  Process 3 in generation 1: new global minimum at -113.4574432420319
+[DEBUG]:  Process 1 in generation 1: new global minimum at -116.2794052822691
+[DEBUG]:  Process 5 in generation 1: new global minimum at -116.05211589185735
+[DEBUG]:  Process 0 in generation 1: new global minimum at -117.5199654273763
+[DEBUG]:  Process 4 in generation 1: new global minimum at -115.67421459576711
+[DEBUG]:  Process 3 in generation 2: new global minimum at -119.87755338979672
+[DEBUG]:  Process 1 in generation 2: new global minimum at -118.61892555360266
+[DEBUG]:  Process 3 in generation 3: new global minimum at -121.24335517213942
+[DEBUG]:  Process 2 in generation 2: new global minimum at -118.38473607184204
+[DEBUG]:  Process 4 in generation 2: new global minimum at -120.13302060020308
+[DEBUG]:  Process 5 in generation 2: new global minimum at -121.08952859281847
+[DEBUG]:  Process 0 in generation 2: new global minimum at -118.13619649192209
+[DEBUG]:  Process 2 in generation 3: new global minimum at -119.11717789730444
+[DEBUG]:  Process 0 in generation 3: new global minimum at -119.6855466624402
+[DEBUG]:  Process 1 in generation 4: new global minimum at -120.25279843343233
+[DEBUG]:  Process 2 in generation 4: new global minimum at -120.95246184360157
+[DEBUG]:  Process 5 in generation 3: new global minimum at -121.11390361479184
+[DEBUG]:  Process 0 in generation 4: new global minimum at -121.5928998813909
+[DEBUG]:  Process 2 in generation 5: new global minimum at -123.98520433883259
+[DEBUG]:  Process 5 in generation 4: new global minimum at -121.14006299255927
+[DEBUG]:  Process 0 in generation 5: new global minimum at -122.26236489388215
+[DEBUG]:  Process 4 in generation 5: new global minimum at -121.84086433340384
+[DEBUG]:  Process 0 in generation 6: new global minimum at -122.29142808195837
+[DEBUG]:  Process 4 in generation 6: new global minimum at -121.96104120592678
+[DEBUG]:  Process 0 in generation 7: new global minimum at -122.29876534272132
+[DEBUG]:  Process 2 in generation 7: new global minimum at -124.00754288402918
+[DEBUG]:  Process 3 in generation 8: new global minimum at -121.89247890830215
+[DEBUG]:  Process 0 in generation 8: new global minimum at -122.3031051458849
+[DEBUG]:  Process 3 in generation 9: new global minimum at -121.96699246267147
+[DEBUG]:  Process 4 in generation 8: new global minimum at -122.0149044999265
+[DEBUG]:  Process 0 in generation 9: new global minimum at -122.39989764282599
+[DEBUG]:  Process 2 in generation 9: new global minimum at -124.00874275441434
+[DEBUG]:  Process 4 in generation 9: new global minimum at -122.02240071859731
+[DEBUG]:      Generation 10: processor 4 finished all exchanges!
+[DEBUG]:      Generation 10: processor 0 finished all exchanges!
+[DEBUG]:      Generation 10: processor 2 finished all exchanges!
+[DEBUG]:  Process 0 in generation 14: new global minimum at -122.40040624878829
+[DEBUG]:      Generation 10: processor 5 finished all exchanges!
+[DEBUG]:  Process 5 in generation 10: new global minimum at -122.39989764282599
+[DEBUG]:  Process 5 in generation 11: new global minimum at -122.40043828232857
+[DEBUG]:      Generation 10: processor 3 finished all exchanges!
+[DEBUG]:      Generation 10: processor 1 finished all exchanges!
+[DEBUG]:  Process 3 in generation 10: new global minimum at -123.96133396094966
+[DEBUG]:  Process 1 in generation 10: new global minimum at -123.19692457976471
+[DEBUG]:  Process 3 in generation 11: new global minimum at -124.00749038365807
+[DEBUG]:  Process 1 in generation 11: new global minimum at -123.8361174243943
+[DEBUG]:  Process 1 in generation 13: new global minimum at -124.00902648751423
+[DEBUG]:  Process 1 in generation 19: new global minimum at -124.00902648751767
+[DEBUG]:      Generation 20: processor 1 finished all exchanges!
+[DEBUG]:      Generation 20: processor 5 finished all exchanges!
+[DEBUG]:      Generation 20: processor 3 finished all exchanges!
+[DEBUG]:      Generation 20: processor 2 finished all exchanges!
+[DEBUG]:  Process 2 in generation 20: new global minimum at -124.00902648751767
+[DEBUG]:      Generation 20: processor 4 finished all exchanges!
+[DEBUG]:      Generation 20: processor 0 finished all exchanges!
+[DEBUG]:  Process 4 in generation 28: new global minimum at -122.02363479895878
+[DEBUG]:  Process 0 in generation 28: new global minimum at -122.40040624878829
+[DEBUG]:  Process 4 in generation 29: new global minimum at -122.02404900647474
+[DEBUG]:      Generation 30: processor 1 finished all exchanges!
+[DEBUG]:      Generation 30: processor 2 finished all exchanges!
+[DEBUG]:      Generation 30: processor 3 finished all exchanges!
+[DEBUG]:      Generation 30: processor 5 finished all exchanges!
+[DEBUG]:  Process 1 in generation 30: new global minimum at -124.0090264875191
+[DEBUG]:  DIVIDE BY ZERO REMOVED FROM POPULATION!
+[DEBUG]:      Generation 30: processor 4 finished all exchanges!
+[DEBUG]:  Process 4 in generation 30: new global minimum at -122.28198721769576
+[DEBUG]:      Generation 30: processor 0 finished all exchanges!
+[DEBUG]:  Process 4 in generation 31: new global minimum at -122.33980917131036
+[DEBUG]:  Process 4 in generation 32: new global minimum at -122.3642553060943
+[DEBUG]:  Process 0 in generation 30: new global minimum at -123.41581445256661
+[DEBUG]:  Process 4 in generation 33: new global minimum at -122.38941895990976
+[DEBUG]:      Generation 40: processor 1 finished all exchanges!
+[DEBUG]:      Generation 40: processor 2 finished all exchanges!
+[DEBUG]:      Generation 40: processor 5 finished all exchanges!
+[DEBUG]:      Generation 40: processor 3 finished all exchanges!
+[DEBUG]:  Process 3 in generation 40: new global minimum at -124.00845990104816
+[DEBUG]:  DIVIDE BY ZERO REMOVED FROM POPULATION!
+[DEBUG]:      Generation 40: processor 4 finished all exchanges!
+[DEBUG]:      Generation 40: processor 0 finished all exchanges!
+[DEBUG]:  Process 4 in generation 40: new global minimum at -123.13685658896608
+[DEBUG]:  Process 0 in generation 40: new global minimum at -123.84410244091522
+[DEBUG]:  Process 0 in generation 41: new global minimum at -123.91712732977436
+[DEBUG]:  Process 0 in generation 43: new global minimum at -123.97180215278438
+[DEBUG]:  Process 0 in generation 44: new global minimum at -124.0046278967032
+[DEBUG]:  Process 0 in generation 45: new global minimum at -124.01070062792738
+[DEBUG]:  All results have been combined!
+
+Execution time for sub-population GA: 274.2881369590759
+ ---------------------------------------------------------------- 
+| Global Geometry Optimisation - Results                         |
+ ================================================================ 
+| Lowest energy local minima :                                   |
+|    -124.01                                                     |
+|    -123.90                                                     |
+|    -123.79                                                     |
+|    -123.69                                                     |
+|    -123.57                                                     |
+|                                                                |
+| Number of local minima found   : 275                           |
+ ---------------------------------------------------------------- 
+Finished Simulation
