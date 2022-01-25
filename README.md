@@ -3,7 +3,7 @@
 
 ## Description
 
-Description of the project
+Atomic clusters have many applications in various areas, mainly because of their unique properties that depend on the geometrical structures of clusters. However, finding optimal stable structures is a computationally expensive task. Several global optimisation methods have been developed for this purpose, including [Basin Hopping](basin_hopping/), [Genetic Algorithm](genetic_algorithm/)s, and [Artificial Bee Colony algorithm](artificial_bee_colony_algorithm/)s. Parallel versions ofthese three were implemented and compared in the present work. The Basin Hopping algorithm converges very fast, but given more time and resources, the other two find global minima with lower energy. The Genetic Algorithm consistently finds the moststable configurations, but a precise setup is required to acquire the best result.
 
 ## Dependencies
 
