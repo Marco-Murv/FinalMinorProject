@@ -13,3 +13,4 @@
 *random_state.txt
 *.png
 *.traj
+*env/
